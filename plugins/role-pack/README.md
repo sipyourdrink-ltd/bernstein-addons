@@ -120,7 +120,7 @@ bernstein trust --workdir DIR
 
 or `bernstein.core.persistence.workspace.grant_workspace_trust(DIR)`.
 
-The gate `role_pack_acceptance` checks every changed file outside `.sdd/`: it hashes the file now and requires a valid acceptance of that path and hash. It re-checks the registry for each acceptance line (the reviewer differs from the producer and may review the producer's role), so a line appended to the ledger by hand does not count. It fails when the owning task is `unknown`, and fails with `blocked=True` when the pack is not configured. Select it in Python:
+The gate `role_pack_acceptance` checks every changed file outside `.sdd/`: it hashes the file now and requires a valid acceptance of that path and hash. It re-checks the registry for each acceptance line (the reviewer differs from the producer and may review the producer's role), so a line appended to the ledger by hand has to pass the same checks. It fails when the owning task is `unknown`, and fails with `blocked=True` when the pack is not configured. Select it in Python:
 
 ```python
 from bernstein.core.quality.gate_pipeline import GatePipelineStep
