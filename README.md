@@ -11,7 +11,7 @@ Plugins for the [Bernstein](https://pypi.org/project/bernstein/) orchestrator. E
 ## Quickstart
 
 ```
-git clone https://github.com/OWNER/bernstein-addons.git
+git clone https://github.com/sipyourdrink-ltd/bernstein-addons.git
 cd bernstein-addons
 python3.12 -m venv .venv
 . .venv/bin/activate
