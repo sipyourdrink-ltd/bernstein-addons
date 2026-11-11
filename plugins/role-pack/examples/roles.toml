@@ -1,0 +1,18 @@
+[clock]
+zone = "UTC"
+max_reading_age_s = 60
+due_window_s = 3600
+
+[roles.requester]
+
+[roles.worker]
+reports_to = "requester"
+
+[roles.reviewer]
+reports_to = "requester"
+reviews = ["worker"]
+
+[principals]
+"req-1" = "requester"
+"wrk-1" = "worker"
+"rev-1" = "reviewer"

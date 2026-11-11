@@ -1,0 +1,24 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  role-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install "bernstein==3.24.1" ./plugins/role-pack
+      - name: Unit tests
+        working-directory: plugins/role-pack
+        run: python -m unittest discover -s tests -v
+      - name: Demo
+        run: bernstein-role-pack demo
