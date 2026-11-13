@@ -12,6 +12,7 @@ Plugins for [Bernstein](https://pypi.org/project/bernstein/), the open-source go
 | Plugin | Package | What it does | Bernstein |
 |---|---|---|---|
 | [role-pack](plugins/role-pack/README.md) | `bernstein-role-pack` | Role registry with reporting lines, a receipt ledger where `done` needs an acceptance by an allowed reviewer bound to the file's sha256, a rule against replaying unknown tasks under a new id, and the quality gate `role_pack_acceptance` | 3.24.1 |
+| [Sandcastle](plugins/sandcastle/README.md) | `bernstein-sandcastle` | Records run evidence and leaves merges to Bernstein's gates | Task-attempt CLI |
 
 ## Quickstart
 
