@@ -1,0 +1,12 @@
+{
+  "name": "bernstein-sandcastle-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Records Sandcastle run evidence for Bernstein.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "bernstein-sandcastle-api": "npm:@ai-hero/sandcastle@0.14.0"
+  }
+}

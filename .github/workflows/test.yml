@@ -22,3 +22,39 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Demo
         run: bernstein-role-pack demo
+
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run local contract tests
+        run: |
+          for tests in plugins/*/tests/contract; do
+            [ -d "$tests" ] || continue
+            plugin="${tests%/tests/contract}"
+            PYTHONPATH="$plugin/src" python -m unittest discover -s "$tests" -v
+          done
+      - name: Check Sandcastle package installation
+        run: |
+          pip install --no-deps ./plugins/sandcastle
+          bernstein-sandcastle --help
+          runtime="$(python -c 'from bernstein_sandcastle.adapter import RUNTIME; print(RUNTIME)')"
+          for file in runner.mjs package.json package-lock.json; do
+            test -f "$runtime/$file"
+          done
+          cd "$runtime"
+          npm ci --ignore-scripts
+          node --input-type=module <<'JS'
+          import assert from "node:assert/strict";
+          import { Output, run } from "bernstein-sandcastle-api";
+          assert.equal(typeof run, "function");
+          assert.deepEqual(Output.string({ tag: "result", maxRetries: 42 }), {
+            _tag: "string", tag: "result", maxRetries: 42,
+          });
+          JS
