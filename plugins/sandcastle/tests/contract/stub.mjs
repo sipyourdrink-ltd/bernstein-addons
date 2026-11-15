@@ -8,10 +8,13 @@ export async function run(options) {
   assert.equal(branchStrategy.type, "branch");
   assert.equal(logging.type, "file");
   assert.equal(maxIterations, 1);
+  assert.equal(output._tag, "string");
+  assert.equal(output.tag, "result");
   assert.equal(output.maxRetries, 0);
   assert.ok(signal instanceof AbortSignal);
   assert.equal(Object.hasOwn(options, "hooks"), false);
-  assert.equal(options.prompt, "task input");
+  assert.equal(options.prompt, "task input\nReturn a summary in <result>...</result>.");
+  assert.ok(options.prompt.includes(`<${output.tag}>`));
 
   const { mode, invocations, source } = JSON.parse(readFileSync(process.env.TEST_SCENARIO));
   appendFileSync(invocations, branchStrategy.branch + "\n");
@@ -41,6 +44,6 @@ export async function run(options) {
     branch: mode === "branch" ? "unexpected" : branch,
     commits: [{ sha: mode === "commits" ? base : first }, { sha: tip }],
     logFilePath: mode === "log" ? `${logging.path}.other` : logging.path,
-    output: { summary: "from stub" },
+    output: "from stub",
   };
 }

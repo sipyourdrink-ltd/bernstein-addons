@@ -35,7 +35,10 @@ class AttemptContract(unittest.TestCase):
         self.enterContext(patch.object(adapter, "RUNTIME", runtime))
 
         self.config = self.root / "config.mjs"
-        self.config.write_text("export default {agent: {}, sandbox: {}, output: {maxRetries: 42}}")
+        self.config.write_text(
+            'export default {agent: {}, sandbox: {}, '
+            'output: {_tag: "string", tag: "result", maxRetries: 42}}'
+        )
         self.invocations = self.root / "invocations"
         self.scenario = self.root / "scenario.json"
         self.enterContext(patch.dict(os.environ, {"TEST_SCENARIO": str(self.scenario)}))
@@ -55,7 +58,8 @@ class AttemptContract(unittest.TestCase):
         receipt = run_attempt(
             repo_dir=self.source, evidence_dir=self.evidence, task_id="task-1",
             attempt_id=attempt_id, base_sha=self.base if base is None else base,
-            target_ref=self.target, config=self.config, prompt="task input", timeout=timeout,
+            target_ref=self.target, config=self.config,
+            prompt="task input\nReturn a summary in <result>...</result>.", timeout=timeout,
         )
         attempt_dir = Path(receipt["repository"]).parent
         self.assertEqual(json.loads((attempt_dir / "evidence.json").read_bytes()), receipt)
@@ -79,7 +83,7 @@ class AttemptContract(unittest.TestCase):
         self.assertIsNone(first["reason"])
         self.assertEqual(first["base_sha"], self.base)
         self.assertEqual(first["target_ref"], self.target)
-        self.assertEqual(first["output"], {"summary": "from stub"})
+        self.assertEqual(first["output"], "from stub")
         self.assertEqual(first["log_sha256"], hashlib.sha256(b"stub run log\n").hexdigest())
         self.assertEqual(Path(first["log_path"]).read_text(), "stub run log\n")
         self.assertEqual(first["tip_sha"], first["commits"][-1]["sha"])
