@@ -34,6 +34,31 @@ official_domains = ["example.com"]
 visit = "url"
 '''
 
+IPV4_HOSTS = (
+    '127.0.0.1',
+    '１２７.０.０.１',  # Full-width decimal digits
+    '𝟏𝟐𝟕.𝟎.𝟎.𝟏',  # Mathematical bold decimal digits
+    '𝟙𝟚𝟟.𝟘.𝟘.𝟙',  # Mathematical double-struck decimal digits
+    '1２𝟕.0.０.𝟙',  # Mixed decimal digit forms
+    '127。0。0。1',  # U+3002
+    '127．0．0．1',  # U+FF0E
+    '127｡0｡0｡1',  # U+FF61
+    '１２７。0．０｡𝟙',  # Mixed digits and full stops
+    '127.0.0.1.',
+    '１２７.０.０.１。',
+    '１２７.０.０.１．',
+    '１２７.０.０.１｡',
+)
+IP_LITERAL_TARGETS = tuple(
+    target for host in IPV4_HOSTS
+    for target in (host, 'http://' + host, 'https://' + host + ':443/path')
+) + (
+    '::1', '[::1]', 'https://[::1]', 'http://[::1]:80/path',
+    'https://[0:0:0:0:0:0:0:1]', 'https://[2001:DB8::1]',
+    'https://[::ffff:127.0.0.1]', 'https://[fe80::1%25eth0]',
+    'https://[::１]', 'https://[２００１:db8::１]',
+)
+
 
 class GateTests(unittest.TestCase):
     def setUp(self):
@@ -87,6 +112,45 @@ class GateTests(unittest.TestCase):
         self.assertEqual(address('https://tenant.github.io')[1], 'tenant.github.io')
         cfg = replace(self.config, official_domains=('example.co.uk',))
         self.assertEqual(check('example.co.uk', cfg, session_id='s', tool='visit')['decision'], 'allow')
+
+    def test_address_rejects_ip_literals_after_normalization(self):
+        for target in IP_LITERAL_TARGETS:
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                address(target)
+
+    def test_ip_literals_block_before_classifier_with_receipts(self):
+        with patch.object(MockClassifier, 'classify') as classify:
+            for target in IP_LITERAL_TARGETS:
+                with self.subTest(target=target):
+                    result = self.run_check(target)
+                    self.assertEqual((result['decision'], result['error']),
+                                     ('block', 'invalid_target'))
+                    self.assertIsNone(result['host'])
+                    self.assertIsNone(result['domain'])
+                    self.assertIsNone(result['verdict'])
+            classify.assert_not_called()
+        entries = list(self.reader().entries())
+        self.assertEqual(len(entries), len(IP_LITERAL_TARGETS))
+        self.assertTrue(self.reader().verify().ok)
+
+    def test_config_rejects_ip_literals_after_normalization(self):
+        for target in IP_LITERAL_TARGETS:
+            with self.subTest(target=target):
+                self.path.write_text(CONFIG.replace('example.com', target))
+                with self.assertRaises(ValueError):
+                    load_config(self.path)
+
+    def test_ordinary_internationalized_domains_remain_accepted(self):
+        for target, host, domain in [
+            ('bücher.de', 'bücher.de', 'bücher.de'),
+            ('https://xn--bcher-kva.de/path', 'bücher.de', 'bücher.de'),
+            ('https://例え。jp', '例え.jp', '例え.jp'),
+            ('https://１２３。example.com', '123.example.com', 'example.com'),
+        ]:
+            with self.subTest(target=target):
+                self.assertEqual(address(target), (host, domain))
+        self.path.write_text(CONFIG.replace('example.com', 'bücher.de'))
+        self.assertEqual(load_config(self.path).official_domains, ('bücher.de',))
 
     def test_invalid_targets_block_with_receipts(self):
         for target in [None, [], ['example.com'], '', 'example.com evil.com',
