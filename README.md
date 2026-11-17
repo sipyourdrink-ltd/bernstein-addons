@@ -9,7 +9,7 @@
 
 Plugins for [Bernstein](https://pypi.org/project/bernstein/), the open-source governance layer for AI agents. Each plugin is a separate Python package under `plugins/` with its own README and tests.
 
-These packages are not published to a package index
+These packages are not currently published on PyPI.
 
 | Plugin | Package | What it does | Bernstein requirement / integration |
 |---|---|---|---|

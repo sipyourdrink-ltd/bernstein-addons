@@ -58,12 +58,12 @@ For parsed CLI invocations with the required arguments, behavior is:
 | Condition | Pre-tool hook | CLI | Journal receipt |
 |---|---|---|---|
 | No configuration path, or readable valid TOML with `enabled` absent or `false` | Pass through without checking | Exit `0`, disabled JSON, without checking | None |
-| Supplied file unreadable, invalid TOML, non-boolean `enabled`, or invalid enabled configuration | Raise `HookBlockingError` | Exit `2`, generic stderr error | None |
+| Supplied file unreadable, invalid TOML, non-boolean `enabled`, invalid enabled configuration, or a dependency failure while loading configuration | Raise `HookBlockingError` | Exit `2`, generic stderr error | None |
 | Valid enabled configuration, tool absent from `tools` | Pass through without checking | Exit `2`, tool-not-configured stderr error | None |
 | Enabled selected tool, invalid/missing/non-string destination | Raise `HookBlockingError` | Exit `2`, blocked JSON for an invalid target string; a missing positional argument is an argparse error | `invalid_target` if the journal write succeeds; no receipt for CLI argument parsing errors |
 | Validated `legit` verdict with `signals.domain_is_legit = true`, journal write succeeds | Return to host | Exit `0`, allow JSON | Allow |
 | Any other validated verdict | Raise `HookBlockingError` | Exit `2`, block JSON | Block if the journal write succeeds |
-| Classifier/dependency unavailable, unsupported embedding runtime, or malformed verdict | Raise `HookBlockingError` | Exit `2`, block JSON | `check_unavailable` if the journal write succeeds |
+| Classifier/dependency unavailable during the check, unsupported embedding runtime, or malformed verdict | Raise `HookBlockingError` | Exit `2`, block JSON | `check_unavailable` if the journal write succeeds |
 | Journal verification or write fails, including for an otherwise allowed target | Raise `HookBlockingError` | Exit `2`, generic stderr error | No successful receipt guaranteed |
 
 The host is responsible for stopping the action on a blocking hook or CLI result. A preceding disabled/unmapped result does not become an allow verdict.
@@ -100,7 +100,7 @@ Local hash-chain verification establishes internal consistency of the hashed fie
 
 This plugin provides detection and evidence only. It files no takedowns and sends no reports to third parties. Its inputs are the operator's target and brand configuration, plus dependency-provided public-suffix data. Examples use a fictional brand and reserved example domains; public data sources only. The plugin is licensed under Apache-2.0.
 
-An invalid configuration cannot supply a reliable journal destination, and a journal write failure cannot produce a receipt; both block and surface a generic error. Inspect the host's error output in those cases.
+An invalid configuration cannot supply a reliable journal destination, and a journal write failure cannot guarantee a receipt; both block and surface a generic error. Inspect the host's error output in those cases.
 
 To verify a session journal:
 
