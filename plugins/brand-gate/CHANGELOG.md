@@ -7,3 +7,4 @@
 - Record verdicts in a dedicated Bernstein journal; block on unavailable checks or journal writes.
 - Block unsupported optional embedding runtimes and strictly validate returned verdicts before recording them.
 - Add offline tests and package checks in CI.
+- Clarify opt-in host enforcement, disabled CLI exit status, heuristic labels, journal privacy and integrity limits, and tested installation requirements.

@@ -276,6 +276,46 @@ class GateTests(unittest.TestCase):
             self.assertEqual(main(['example.com', '--session', 's', '--tool', 'visit']), 2)
         self.assertNotIn(str(self.path), error.getvalue())
 
+    def test_cli_help_explains_disabled_exit_zero(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            with self.assertRaises(SystemExit) as exit_status:
+                main(['--help'])
+        self.assertEqual(exit_status.exception.code, 0)
+        help_text = ' '.join(output.getvalue().split())
+        self.assertIn('disabled checks return 0 without checking', help_text)
+        self.assertIn('Exit 0 means allow OR disabled', help_text)
+        self.assertIn('must independently ensure enablement', help_text)
+
+    def test_cli_disabled_cases_never_check_or_write_receipts(self):
+        for content in [None, '', 'enabled = false\n', 'enabled = false\nbrand_name = 123\n']:
+            with self.subTest(content=content), patch(
+                'bernstein_brand_gate.cli.check'
+            ) as checker:
+                if content is not None:
+                    self.path.write_text(content)
+                env_path = '' if content is None else str(self.path)
+                with patch.dict(os.environ, {'BERNSTEIN_BRAND_GATE_CONFIG': env_path}):
+                    with contextlib.redirect_stdout(io.StringIO()) as output:
+                        code = main(['not a domain', '--session', 's', '--tool', 'other'])
+                self.assertEqual(code, 0)
+                self.assertEqual(json.loads(output.getvalue()),
+                                 {'decision': 'disabled', 'checked': False})
+                checker.assert_not_called()
+                self.assertFalse(self.config.journal_dir.exists())
+
+    def test_invalid_opt_in_files_block_both_interfaces_without_receipts(self):
+        for content in ['enabled = [', 'enabled = "false"', 'enabled = true\n']:
+            with self.subTest(content=content):
+                self.path.write_text(content)
+                with self.assertRaises(HookBlockingError):
+                    self.plugin.on_pre_tool_use('s', 'visit', {'url': 'example.com'})
+                with contextlib.redirect_stderr(io.StringIO()) as error:
+                    code = main(['example.com', '--session', 's', '--tool', 'visit'])
+                self.assertEqual(code, 2)
+                self.assertIn('action blocked', error.getvalue())
+                self.assertNotIn(str(self.path), error.getvalue())
+                self.assertFalse(self.config.journal_dir.exists())
+
     def test_cli_unconfigured_tool_and_journal_failure_block(self):
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(main(['example.com', '--session', 's', '--tool', 'other']), 2)
