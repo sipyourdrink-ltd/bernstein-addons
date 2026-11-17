@@ -58,3 +58,19 @@ jobs:
             _tag: "string", tag: "result", maxRetries: 42,
           });
           JS
+
+  brand-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install "bernstein==3.24.1" "brand-impersonation-detector==0.1.1" ./plugins/brand-gate
+      - name: Unit tests with network blocked
+        run: python -m unittest discover -s plugins/brand-gate/tests -v
+      - name: Package and CLI
+        run: |
+          pip wheel --no-deps ./plugins/brand-gate --wheel-dir /tmp/brand-gate-wheel
+          bernstein-brand-gate --help
