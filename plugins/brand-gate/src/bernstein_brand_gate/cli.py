@@ -1,4 +1,4 @@
-"""Explicit pre-action command: 0 permits, 2 blocks."""
+"""Explicit pre-action command; disabled checks return 0 without checking."""
 
 import argparse
 import json
@@ -11,7 +11,11 @@ from bernstein_brand_gate.gate import check
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=("Exit 0 means allow OR disabled; exit 2 blocks. "
+                "Hosts relying on exit status must independently ensure enablement."),
+    )
     parser.add_argument("target", help="one domain or HTTP(S) URL")
     parser.add_argument("--config", type=Path)
     parser.add_argument("--session", required=True)

@@ -37,13 +37,13 @@ def address(target: str) -> tuple[str, str]:
     if parsed.port is not None and not 1 <= parsed.port <= 65535:
         raise ValueError("invalid port")
     host = (parsed.hostname or "").removesuffix(".")
+    ascii_host = idna.encode(host, uts46=True, transitional=False).decode("ascii").lower()
     try:
-        ipaddress.ip_address(host)
+        ipaddress.ip_address(ascii_host.removesuffix("."))
     except ValueError:
         pass
     else:
         raise ValueError("expected a DNS domain")
-    ascii_host = idna.encode(host, uts46=True, transitional=False).decode("ascii").lower()
     if len(ascii_host) > 253 or "." not in ascii_host:
         raise ValueError("expected a DNS domain")
     host = idna.decode(ascii_host)

@@ -34,6 +34,31 @@ official_domains = ["example.com"]
 visit = "url"
 '''
 
+IPV4_HOSTS = (
+    '127.0.0.1',
+    '１２７.０.０.１',  # Full-width decimal digits
+    '𝟏𝟐𝟕.𝟎.𝟎.𝟏',  # Mathematical bold decimal digits
+    '𝟙𝟚𝟟.𝟘.𝟘.𝟙',  # Mathematical double-struck decimal digits
+    '1２𝟕.0.０.𝟙',  # Mixed decimal digit forms
+    '127。0。0。1',  # U+3002
+    '127．0．0．1',  # U+FF0E
+    '127｡0｡0｡1',  # U+FF61
+    '１２７。0．０｡𝟙',  # Mixed digits and full stops
+    '127.0.0.1.',
+    '１２７.０.０.１。',
+    '１２７.０.０.１．',
+    '１２７.０.０.１｡',
+)
+IP_LITERAL_TARGETS = tuple(
+    target for host in IPV4_HOSTS
+    for target in (host, 'http://' + host, 'https://' + host + ':443/path')
+) + (
+    '::1', '[::1]', 'https://[::1]', 'http://[::1]:80/path',
+    'https://[0:0:0:0:0:0:0:1]', 'https://[2001:DB8::1]',
+    'https://[::ffff:127.0.0.1]', 'https://[fe80::1%25eth0]',
+    'https://[::１]', 'https://[２００１:db8::１]',
+)
+
 
 class GateTests(unittest.TestCase):
     def setUp(self):
@@ -87,6 +112,45 @@ class GateTests(unittest.TestCase):
         self.assertEqual(address('https://tenant.github.io')[1], 'tenant.github.io')
         cfg = replace(self.config, official_domains=('example.co.uk',))
         self.assertEqual(check('example.co.uk', cfg, session_id='s', tool='visit')['decision'], 'allow')
+
+    def test_address_rejects_ip_literals_after_normalization(self):
+        for target in IP_LITERAL_TARGETS:
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                address(target)
+
+    def test_ip_literals_block_before_classifier_with_receipts(self):
+        with patch.object(MockClassifier, 'classify') as classify:
+            for target in IP_LITERAL_TARGETS:
+                with self.subTest(target=target):
+                    result = self.run_check(target)
+                    self.assertEqual((result['decision'], result['error']),
+                                     ('block', 'invalid_target'))
+                    self.assertIsNone(result['host'])
+                    self.assertIsNone(result['domain'])
+                    self.assertIsNone(result['verdict'])
+            classify.assert_not_called()
+        entries = list(self.reader().entries())
+        self.assertEqual(len(entries), len(IP_LITERAL_TARGETS))
+        self.assertTrue(self.reader().verify().ok)
+
+    def test_config_rejects_ip_literals_after_normalization(self):
+        for target in IP_LITERAL_TARGETS:
+            with self.subTest(target=target):
+                self.path.write_text(CONFIG.replace('example.com', target))
+                with self.assertRaises(ValueError):
+                    load_config(self.path)
+
+    def test_ordinary_internationalized_domains_remain_accepted(self):
+        for target, host, domain in [
+            ('bücher.de', 'bücher.de', 'bücher.de'),
+            ('https://xn--bcher-kva.de/path', 'bücher.de', 'bücher.de'),
+            ('https://例え。jp', '例え.jp', '例え.jp'),
+            ('https://１２３。example.com', '123.example.com', 'example.com'),
+        ]:
+            with self.subTest(target=target):
+                self.assertEqual(address(target), (host, domain))
+        self.path.write_text(CONFIG.replace('example.com', 'bücher.de'))
+        self.assertEqual(load_config(self.path).official_domains, ('bücher.de',))
 
     def test_invalid_targets_block_with_receipts(self):
         for target in [None, [], ['example.com'], '', 'example.com evil.com',
@@ -275,6 +339,46 @@ class GateTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()) as error:
             self.assertEqual(main(['example.com', '--session', 's', '--tool', 'visit']), 2)
         self.assertNotIn(str(self.path), error.getvalue())
+
+    def test_cli_help_explains_disabled_exit_zero(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            with self.assertRaises(SystemExit) as exit_status:
+                main(['--help'])
+        self.assertEqual(exit_status.exception.code, 0)
+        help_text = ' '.join(output.getvalue().split())
+        self.assertIn('disabled checks return 0 without checking', help_text)
+        self.assertIn('Exit 0 means allow OR disabled', help_text)
+        self.assertIn('must independently ensure enablement', help_text)
+
+    def test_cli_disabled_cases_never_check_or_write_receipts(self):
+        for content in [None, '', 'enabled = false\n', 'enabled = false\nbrand_name = 123\n']:
+            with self.subTest(content=content), patch(
+                'bernstein_brand_gate.cli.check'
+            ) as checker:
+                if content is not None:
+                    self.path.write_text(content)
+                env_path = '' if content is None else str(self.path)
+                with patch.dict(os.environ, {'BERNSTEIN_BRAND_GATE_CONFIG': env_path}):
+                    with contextlib.redirect_stdout(io.StringIO()) as output:
+                        code = main(['not a domain', '--session', 's', '--tool', 'other'])
+                self.assertEqual(code, 0)
+                self.assertEqual(json.loads(output.getvalue()),
+                                 {'decision': 'disabled', 'checked': False})
+                checker.assert_not_called()
+                self.assertFalse(self.config.journal_dir.exists())
+
+    def test_invalid_opt_in_files_block_both_interfaces_without_receipts(self):
+        for content in ['enabled = [', 'enabled = "false"', 'enabled = true\n']:
+            with self.subTest(content=content):
+                self.path.write_text(content)
+                with self.assertRaises(HookBlockingError):
+                    self.plugin.on_pre_tool_use('s', 'visit', {'url': 'example.com'})
+                with contextlib.redirect_stderr(io.StringIO()) as error:
+                    code = main(['example.com', '--session', 's', '--tool', 'visit'])
+                self.assertEqual(code, 2)
+                self.assertIn('action blocked', error.getvalue())
+                self.assertNotIn(str(self.path), error.getvalue())
+                self.assertFalse(self.config.journal_dir.exists())
 
     def test_cli_unconfigured_tool_and_journal_failure_block(self):
         with contextlib.redirect_stderr(io.StringIO()):
