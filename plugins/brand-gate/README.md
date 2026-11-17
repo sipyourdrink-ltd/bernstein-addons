@@ -53,7 +53,9 @@ The host must wait for exit `0` before proceeding. Exit `2` blocks. The CLI prin
 
 ## Verdict policy and limits
 
-The integration constructs one public `Candidate` and `Brand`, then invokes bid's `MockClassifier.classify`. Despite the class name, this is the package's deterministic offline rule classifier. It computes domain/handle similarity and official-domain signals. The plugin does not invoke discovery sensors, a live model, page fetching or enrichment. No API key, DNS or HTTP request is needed. Initial imports and the bundled public-suffix data add first-use overhead; there is no latency guarantee.
+The integration constructs one public `Candidate` and `Brand`, then invokes bid's `MockClassifier.classify`. Despite the class name, this is the package's deterministic rule classifier. It computes domain/handle similarity and official-domain signals. Use a dedicated environment with the base detector dependency, without its optional embedding runtime. That runtime can download models implicitly; when it is present, the plugin records `check_unavailable` and blocks before invoking the classifier. It does not change the detector's global settings.
+
+In the supported environment, the plugin does not invoke discovery sensors, a live model, page fetching or enrichment. No API key, DNS or HTTP request is needed. Initial imports and the bundled public-suffix data add first-use overhead; there is no latency guarantee.
 
 Only `legit` with `signals.domain_is_legit = true` permits the action. `fan`, `suspicious`, `impersonation`, `fraud`, unknown/malformed verdicts and an unavailable check block. An unrelated domain may be `suspicious` and block too. This conservative policy is intended for the explicitly configured tools and brand. Classifier errors record `check_unavailable`; journal failure blocks even an otherwise allowed target.
 

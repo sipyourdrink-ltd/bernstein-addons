@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from importlib.metadata import version
+from importlib.util import find_spec
 
 from bernstein.core.persistence.journal import Journal, JournalReader
 from filelock import FileLock
@@ -32,15 +33,21 @@ def check(target: object, config: Config, *, session_id: str, tool: str) -> dict
     }
     try:
         host, domain = address(target)
-    except Exception:
+    except ValueError:
         receipt["error"] = "invalid_target"
+    except Exception:
+        receipt["error"] = "check_unavailable"
     else:
         receipt.update(host=host, domain=domain)
         try:
+            receipt["bid_version"] = version("brand-impersonation-detector")
+            # Optional embedding runtimes can download models implicitly.
+            # Refuse that environment before entering the classifier.
+            if find_spec("fastembed") is not None:
+                raise RuntimeError("optional embedding runtime is not supported")
             from bid.classify import MockClassifier
             from bid.models import Brand, Candidate, Verdict
 
-            receipt["bid_version"] = version("brand-impersonation-detector")
             brand = Brand(id=config.sha256, name=config.brand_name,
                           official_handles=list(config.official_domains),
                           official_domains=list(config.official_domains),
@@ -52,9 +59,12 @@ def check(target: object, config: Config, *, session_id: str, tool: str) -> dict
                 raw_observation_ref=digest({"host": host, "domain": domain}),
                 first_seen=datetime.now(timezone.utc),
             )
-            verdict = Verdict.model_validate(MockClassifier().classify(candidate, brand))
-            if verdict.candidate_id != candidate.id:
-                raise ValueError("candidate mismatch")
+            raw_verdict = MockClassifier().classify(candidate, brand)
+            payload = (raw_verdict.model_dump(warnings=False)
+                       if isinstance(raw_verdict, Verdict) else raw_verdict)
+            verdict = Verdict.model_validate(payload, strict=True)
+            if verdict.candidate_id != candidate.id or not 0 <= verdict.confidence <= 1:
+                raise ValueError("invalid verdict identity or confidence")
             receipt["verdict"] = verdict.model_dump(mode="json")
             if verdict.label == "legit" and verdict.signals.domain_is_legit is True:
                 receipt["decision"] = "allow"

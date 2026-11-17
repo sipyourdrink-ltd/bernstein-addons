@@ -7,13 +7,16 @@ import io
 import json
 import os
 import socket
+import sys
 import tempfile
+import types
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from importlib.metadata import entry_points
+from importlib.machinery import ModuleSpec
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from bernstein.core.persistence.journal import JournalReader
 from bernstein.plugins.manager import HookBlockingError, PluginManager
@@ -42,8 +45,10 @@ class GateTests(unittest.TestCase):
         self.config = load_config(self.path)
         self.plugin = BrandGatePlugin()
         for method in ('connect', 'connect_ex'):
-            self.enterContext(patch.object(socket.socket, method, side_effect=AssertionError('network forbidden')))
-        self.enterContext(patch.object(socket, 'getaddrinfo', side_effect=AssertionError('DNS forbidden')))
+            guard = self.enterContext(patch.object(socket.socket, method, side_effect=AssertionError('network forbidden')))
+            self.addCleanup(guard.assert_not_called)
+        guard = self.enterContext(patch.object(socket, 'getaddrinfo', side_effect=AssertionError('DNS forbidden')))
+        self.addCleanup(guard.assert_not_called)
         self.enterContext(patch.dict(os.environ, {'BERNSTEIN_BRAND_GATE_CONFIG': str(self.path)}))
 
     def run_check(self, target, **kwargs):
@@ -127,6 +132,48 @@ class GateTests(unittest.TestCase):
             return verdict
         with patch.object(MockClassifier, 'classify', side_effect=mismatched):
             self.assertEqual(self.run_check('example.com')['error'], 'check_unavailable')
+
+    def test_optional_model_runtime_blocks_before_classifier(self):
+        optional = types.ModuleType('fastembed')
+        optional.__spec__ = ModuleSpec('fastembed', loader=None)
+        optional.TextEmbedding = Mock(side_effect=RuntimeError('no model download'))
+        with patch.dict(sys.modules, {'fastembed': optional}), patch.dict(
+            os.environ, {'BID_DATA_DIR': str(self.root / 'detector-data')}
+        ), patch.object(MockClassifier, 'classify', wraps=MockClassifier().classify) as classify:
+            result = self.run_check('example.com')
+        self.assertEqual((result['decision'], result['error']), ('block', 'check_unavailable'))
+        classify.assert_not_called()
+        optional.TextEmbedding.assert_not_called()
+
+    def test_mutated_verdict_instance_is_revalidated(self):
+        original = MockClassifier().classify
+        for field in ['confidence', 'model_id', 'nested_signal']:
+            def malformed(c, b):
+                verdict = original(c, b)
+                if field == 'nested_signal':
+                    verdict.signals.handle_similarity = 'invalid'
+                else:
+                    setattr(verdict, field, None)
+                return verdict
+            with self.subTest(field=field), patch.object(MockClassifier, 'classify', side_effect=malformed):
+                result = self.run_check('example.com')
+            self.assertEqual((result['decision'], result['error']), ('block', 'check_unavailable'))
+
+    def test_invalid_confidence_blocks(self):
+        original = MockClassifier().classify
+        for confidence in [float('nan'), float('inf'), -0.1, 1.1]:
+            def malformed(c, b):
+                verdict = original(c, b)
+                verdict.confidence = confidence
+                return verdict
+            with self.subTest(confidence=confidence), patch.object(MockClassifier, 'classify', side_effect=malformed):
+                result = self.run_check('example.com')
+            self.assertEqual((result['decision'], result['error']), ('block', 'check_unavailable'))
+
+    def test_domain_dependency_failure_is_unavailable(self):
+        with patch.dict(sys.modules, {'bid.domains': None}):
+            result = self.run_check('example.com')
+        self.assertEqual((result['decision'], result['error']), ('block', 'check_unavailable'))
 
     def test_journal_receipt_contains_no_url_path_query_or_credentials(self):
         result = self.run_check('https://example.com/private-path?token=secret-token#secret-fragment')
