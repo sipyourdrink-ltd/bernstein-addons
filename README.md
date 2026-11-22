@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein-addons/main/docs/assets/readme-banner-dark.webp">
-  <img src="https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein-addons/main/docs/assets/readme-banner-light.webp" width="820" alt="bernstein-addons: Plugins for the Bernstein governance layer. Chords: F7, B♭7, F7, F7.">
+  <img src="https://raw.githubusercontent.com/sipyourdrink-ltd/bernstein-addons/main/docs/assets/readme-banner-light.webp" width="820" alt="bernstein-addons: Plugins for the Bernstein governance layer. Chords: Gm9, C13, Fmaj9, F♯dim7.">
 </picture>
 
 # bernstein-addons
