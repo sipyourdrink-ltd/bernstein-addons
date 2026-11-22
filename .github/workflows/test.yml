@@ -10,13 +10,17 @@ permissions:
 jobs:
   role-pack:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bernstein: ["3.24.1", "4.0.0"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install "bernstein==3.24.1" ./plugins/role-pack
+        run: pip install "bernstein==${{ matrix.bernstein }}" ./plugins/role-pack
       - name: Unit tests
         working-directory: plugins/role-pack
         run: python -m unittest discover -s tests -v
@@ -61,13 +65,17 @@ jobs:
 
   brand-gate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bernstein: ["3.24.1", "4.0.0"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install "bernstein==3.24.1" "brand-impersonation-detector==0.1.1" ./plugins/brand-gate
+        run: pip install "bernstein==${{ matrix.bernstein }}" "brand-impersonation-detector==0.1.1" ./plugins/brand-gate
       - name: Unit tests with network blocked
         run: python -m unittest discover -s plugins/brand-gate/tests -v
       - name: Package and CLI

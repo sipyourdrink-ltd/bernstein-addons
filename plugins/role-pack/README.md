@@ -13,7 +13,7 @@ A plugin for the [Bernstein](https://pypi.org/project/bernstein/) orchestrator t
 ```
 python3.12 -m venv .venv
 . .venv/bin/activate
-pip install "bernstein==3.24.1"
+pip install "bernstein==4.0.0"
 pip install ./plugins/role-pack
 bernstein-role-pack demo
 ```
@@ -137,14 +137,14 @@ report = await GateRunner(config, workdir).run_all(task, run_dir)
 
 - Principals are names the caller supplies. The pack does not authenticate them.
 - The ledger is a plain file. Whoever can write it can alter it; the gate re-checks registry rules but cannot detect a consistent forgery by a writer who names valid principals.
-- The gate must be selected in Python. Bernstein 3.24.1 does not accept a plugin gate from `bernstein.yaml`.
+- The gate must be selected in Python. Bernstein 3.24.1 and 4.0.0 do not accept a plugin gate in `quality_gates.pipeline` of `bernstein.yaml`.
 - Hooks fire only for tasks created through the HTTP task routes in a trusted workspace. Tasks created another way are not tracked.
 - The hooks find the pack home from the server process's current directory or `$BERNSTEIN_ROLE_PACK_HOME`; Bernstein does not pass the workspace to them.
 - When `GateRunner` resolves no changed files, the gate has nothing to check and passes.
 - If the ledger or `roles.toml` cannot be read, the pre-create rules are skipped, the task is created and a warning goes to stderr.
 - A deadline is matched to its task by role and title, so two tasks with the same role and title created at the same moment can swap deadlines.
 - Each event is one append to the ledger file. Several processes writing at once were not tested.
-- Tested only against Bernstein 3.24.1 on Python 3.12.
+- Tested only against Bernstein 3.24.1 and 4.0.0 on Python 3.12.
 
 ## Tests
 
