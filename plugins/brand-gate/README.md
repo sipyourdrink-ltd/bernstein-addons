@@ -12,7 +12,7 @@ From the repository root, with Python 3.12 or newer:
 pip install ./plugins/brand-gate
 ```
 
-The plugin is version `0.1.0`, marked Unreleased in [CHANGELOG.md](CHANGELOG.md), and is installed from this checkout. The package depends on `bernstein>=3.24.1,<4` and `brand-impersonation-detector>=0.1.1,<0.2`. It includes no detector implementation. CI tests Bernstein 3.24.1 and detector 0.1.1 on Python 3.12; the broader dependency ranges are not a tested-version matrix.
+The plugin is version `0.1.0`, marked Unreleased in [CHANGELOG.md](CHANGELOG.md), and is installed from this checkout. The package depends on `bernstein>=3.24.1,<5` and `brand-impersonation-detector>=0.1.1,<0.2`. It includes no detector implementation. CI tests Bernstein 3.24.1 and 4.0.0, each with detector 0.1.1, on Python 3.12; other versions in the dependency ranges are not tested.
 
 ## Configure
 
@@ -121,4 +121,4 @@ for entry in reader.entries():
 python -m unittest discover -s plugins/brand-gate/tests -v
 ```
 
-CI installs Bernstein 3.24.1 and `brand-impersonation-detector` 0.1.1 on Python 3.12. Tests use these installed APIs and cover verdict mapping, unavailable checks, defaults, invalid inputs, receipts, concurrent writers, plugin registration and CLI behavior. Each test's setup patches `socket.socket.connect`, `socket.socket.connect_ex` and `socket.getaddrinfo` to raise, and cleanup asserts they were not called. Imports occur before these patches; the tests do not provide OS network isolation or cover every possible network API. No live service calls are part of the tests. CI also builds the plugin wheel and checks CLI help.
+CI runs the tests on Python 3.12 twice, with Bernstein 3.24.1 and with 4.0.0, each with `brand-impersonation-detector` 0.1.1. Tests use these installed APIs and cover verdict mapping, unavailable checks, defaults, invalid inputs, receipts, concurrent writers, plugin registration and CLI behavior. Each test's setup patches `socket.socket.connect`, `socket.socket.connect_ex` and `socket.getaddrinfo` to raise, and cleanup asserts they were not called. Imports occur before these patches; the tests do not provide OS network isolation or cover every possible network API. No live service calls are part of the tests. CI also builds the plugin wheel and checks CLI help.

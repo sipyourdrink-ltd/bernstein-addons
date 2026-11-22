@@ -9,7 +9,7 @@ description = "Role registry, receipt ledger and acceptance gate for Bernstein"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
-dependencies = ["bernstein>=3.24,<4"]
+dependencies = ["bernstein>=3.24,<5"]
 
 [project.entry-points."bernstein.plugins"]
 role_pack = "bernstein_role_pack.plugin:RolePackPlugin"

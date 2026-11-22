@@ -8,3 +8,4 @@
 - Block unsupported optional embedding runtimes and strictly validate returned verdicts before recording them.
 - Add offline tests and package checks in CI.
 - Clarify opt-in host enforcement, disabled CLI exit status, heuristic labels, journal privacy and integrity limits, and tested installation requirements.
+- Accept Bernstein 4.x (`bernstein>=3.24.1,<5`) and run CI against Bernstein 3.24.1 and 4.0.0.
