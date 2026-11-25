@@ -1,0 +1,12 @@
+{
+  "id": "mcp-vetting-demo",
+  "objective": "Audit candidate third-party MCP server permissions, supply-chain digest, and prompt-injection surface.",
+  "domain": "security",
+  "privacy": "internal",
+  "workflow": "mcp-plugin-vetting",
+  "budget": {
+    "max_worker_calls": 5,
+    "max_concurrency": 2,
+    "deadline_seconds": 1200
+  }
+}

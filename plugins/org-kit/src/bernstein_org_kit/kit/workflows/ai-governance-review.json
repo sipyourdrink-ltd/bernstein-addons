@@ -1,0 +1,50 @@
+{
+  "name": "ai-governance-review",
+  "completion_nodes": [
+    "aims-register-entry"
+  ],
+  "nodes": {
+    "catalog-agent-surface": {
+      "role": "ai-governance-officer",
+      "depends_on": [],
+      "timeout_seconds": 450
+    },
+    "assess-owasp-risks": {
+      "role": "ai-red-teamer",
+      "depends_on": [
+        "catalog-agent-surface"
+      ],
+      "timeout_seconds": 600
+    },
+    "verify-eval-coverage": {
+      "role": "qa-eval-engineer",
+      "depends_on": [
+        "catalog-agent-surface"
+      ],
+      "timeout_seconds": 600
+    },
+    "map-regulatory-obligations": {
+      "role": "legal-compliance",
+      "depends_on": [
+        "catalog-agent-surface"
+      ],
+      "timeout_seconds": 600
+    },
+    "security-gate-signoff": {
+      "role": "security-review",
+      "depends_on": [
+        "assess-owasp-risks",
+        "verify-eval-coverage"
+      ],
+      "timeout_seconds": 450
+    },
+    "aims-register-entry": {
+      "role": "ai-governance-officer",
+      "depends_on": [
+        "security-gate-signoff",
+        "map-regulatory-obligations"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

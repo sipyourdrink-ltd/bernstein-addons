@@ -88,13 +88,41 @@ class DemoAndCliTests(unittest.TestCase):
             with contextlib.redirect_stdout(buf):
                 rc = cli.main(["sops", "--json"])
             self.assertEqual(rc, 0)
-            self.assertEqual(len(json.loads(buf.getvalue())), 7)
+            self.assertEqual(len(json.loads(buf.getvalue())), 16)
 
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 rc = cli.main(["sops", "show", "SOP-OPS-01"])
             self.assertEqual(rc, 0)
             self.assertIn("Executive teammate", buf.getvalue())
+
+            # scenarios list, filter & show
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = cli.main(["scenarios", "--json"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(len(json.loads(buf.getvalue())), 32)
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = cli.main(["scenarios", "--department", "security", "--json"])
+            self.assertEqual(rc, 0)
+            sec_scenarios = json.loads(buf.getvalue())
+            self.assertGreaterEqual(len(sec_scenarios), 4)
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = cli.main(["scenarios", "show", "22-ai-governance-review"])
+            self.assertEqual(rc, 0)
+            self.assertIn("ai-governance-review", buf.getvalue())
+
+            # domain preset init (secops)
+            sec_ws = Path(td) / "secops-team"
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = cli.main(["init", str(sec_ws), "--preset", "secops"])
+            self.assertEqual(rc, 0)
+            self.assertIn("preset=secops", buf.getvalue())
 
             # workflows show & compile
             buf = io.StringIO()

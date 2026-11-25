@@ -1,4 +1,4 @@
-"""Starter kit catalog, frontmatter parsing, and workspace initialization."""
+"""Starter kit catalog, frontmatter parsing, presets, and workspace initialization."""
 
 from __future__ import annotations
 
@@ -12,7 +12,14 @@ from typing import Any
 from bernstein_org_kit import OrgKitError
 from bernstein_org_kit.roles_toml import write_roles_toml
 
-PRESETS: tuple[str, ...] = ("minimal", "full")
+PRESETS: tuple[str, ...] = (
+    "minimal",
+    "engineering",
+    "secops",
+    "product",
+    "compliance",
+    "full",
+)
 DEFAULT_PRESET = "minimal"
 
 # Smallest self-contained developer reporting tree back to owner covering
@@ -31,6 +38,165 @@ MINIMAL_WORKFLOWS: tuple[str, ...] = (
     "document-review.json",
     "release-pipeline.json",
 )
+
+
+@dataclass(frozen=True)
+class PresetSpec:
+    name: str
+    roles: tuple[str, ...]
+    workflows: tuple[str, ...]
+    sops: tuple[str, ...] = ()
+    tasks: tuple[str, ...] = ("review-demo.json",)
+    include_scenarios: bool = False
+    include_templates: bool = False
+
+
+PRESET_SPECS: dict[str, PresetSpec] = {
+    "minimal": PresetSpec(
+        name="minimal",
+        roles=MINIMAL_ROLES,
+        workflows=MINIMAL_WORKFLOWS,
+        sops=(),
+        tasks=("review-demo.json",),
+    ),
+    "engineering": PresetSpec(
+        name="engineering",
+        roles=(
+            "ceo",
+            "communications-controller",
+            "cto-tech",
+            "cloud-infra",
+            "tech-automations",
+            "rnd",
+            "security-review",
+            "swarm-coordinator",
+            "technical-supervisor",
+            "runtime-reliability-engineer",
+            "technical-duty",
+            "data-platform-engineer",
+            "qa-eval-engineer",
+            "release-manager",
+        ),
+        workflows=(
+            "code-review-merge.json",
+            "deprecation-rollout.json",
+            "disaster-recovery-drill.json",
+            "document-review.json",
+            "incident-postmortem.json",
+            "plan-then-execute.json",
+            "release-pipeline.json",
+            "zero-downtime-migration.json",
+        ),
+        sops=(
+            "SOP-ENG-01-zero-downtime-schema-and-data-migration.md",
+            "SOP-OPS-04-incident-response-and-blameless-postmortem.md",
+            "SOP-OPS-05-disaster-recovery-and-backup-drill.md",
+        ),
+        tasks=("review-demo.json", "db-migration-demo.json"),
+    ),
+    "secops": PresetSpec(
+        name="secops",
+        roles=(
+            "ceo",
+            "ai-governance-officer",
+            "cto-tech",
+            "tech-automations",
+            "rnd",
+            "security-review",
+            "ai-red-teamer",
+            "secops-responder",
+            "technical-supervisor",
+            "qa-eval-engineer",
+            "legal-director",
+            "legal-compliance",
+        ),
+        workflows=(
+            "ai-governance-review.json",
+            "code-review-merge.json",
+            "mcp-plugin-vetting.json",
+            "release-pipeline.json",
+            "security-advisory-hotfix.json",
+        ),
+        sops=(
+            "SOP-GOV-01-ai-system-risk-and-iso42001-review.md",
+            "SOP-SEC-01-vulnerability-disclosure-and-cve-hotfix.md",
+            "SOP-SEC-02-mcp-and-plugin-security-vetting.md",
+        ),
+        tasks=("cve-hotfix-demo.json", "mcp-vetting-demo.json", "ai-governance-demo.json"),
+    ),
+    "product": PresetSpec(
+        name="product",
+        roles=(
+            "ceo",
+            "vp-product",
+            "product-manager",
+            "ux-design-reviewer",
+            "deep-research",
+            "communications-controller",
+            "cto-tech",
+            "tech-automations",
+            "rnd",
+            "security-review",
+            "technical-supervisor",
+            "runtime-reliability-engineer",
+            "technical-duty",
+            "qa-eval-engineer",
+        ),
+        workflows=(
+            "code-review-merge.json",
+            "deprecation-rollout.json",
+            "document-review.json",
+            "incident-postmortem.json",
+            "release-pipeline.json",
+            "spec-to-release.json",
+        ),
+        sops=(
+            "SOP-OPS-04-incident-response-and-blameless-postmortem.md",
+            "SOP-PROD-01-spec-to-release-feature-gate.md",
+        ),
+        tasks=("review-demo.json",),
+    ),
+    "compliance": PresetSpec(
+        name="compliance",
+        roles=(
+            "ceo",
+            "ai-governance-officer",
+            "cto-tech",
+            "tech-automations",
+            "security-review",
+            "ai-red-teamer",
+            "technical-supervisor",
+            "runtime-reliability-engineer",
+            "qa-eval-engineer",
+            "cfo-finance",
+            "bi-automations",
+            "finops-controller",
+            "legal-director",
+            "legal-counsel",
+            "legal-contracts",
+            "legal-compliance",
+            "legal-assistant",
+            "vp-sales",
+            "solutions-architect",
+        ),
+        workflows=(
+            "ai-governance-review.json",
+            "audit-evidence-pack.json",
+            "finops-spend-audit.json",
+            "legal-adversarial-review.json",
+            "procure-to-pay-3way.json",
+            "vendor-security-rfp.json",
+        ),
+        sops=(
+            "SOP-FIN-01-procure-to-pay-3way-match.md",
+            "SOP-FIN-02-cloud-and-ai-token-spend-governance.md",
+            "SOP-GOV-01-ai-system-risk-and-iso42001-review.md",
+            "SOP-LEGAL-01-adversarial-review-of-external-communications.md",
+            "SOP-SALES-01-enterprise-rfp-and-vendor-security-pack.md",
+        ),
+        tasks=("finops-audit-demo.json", "ai-governance-demo.json"),
+    ),
+}
 
 KIT_ROOT = Path(__file__).resolve().parent / "kit"
 _FRONTMATTER_RE = re.compile(r"^---\r?\n(.*?)\r?\n---\r?\n?", re.DOTALL)
@@ -77,6 +243,15 @@ class WorkflowDoc:
     path: Path
     data: dict[str, Any]
     raw_text: str
+
+
+@dataclass(frozen=True)
+class ScenarioRow:
+    id: str
+    department: str
+    title: str
+    workflow: str
+    sop: str | None
 
 
 @dataclass(frozen=True)
@@ -145,6 +320,14 @@ def _subdir(kind: str, workspace: Path | None) -> Path:
         if candidate.is_dir():
             return candidate
     return KIT_ROOT / kind
+
+
+def _scenarios_path(workspace: Path | None) -> Path:
+    if workspace is not None:
+        candidate = Path(workspace) / "scenarios.json"
+        if candidate.is_file():
+            return candidate
+    return KIT_ROOT / "scenarios.json"
 
 
 def _parse_role_file(path: Path) -> RoleDoc:
@@ -219,6 +402,47 @@ def workflow_rows(workspace: Path | None = None) -> list[WorkflowSummary]:
             )
         )
     return sorted(rows, key=lambda w: w.name)
+
+
+def scenario_rows(
+    workspace: Path | None = None,
+    *,
+    department: str | None = None,
+) -> list[ScenarioRow]:
+    """Return scenario entries from workspace scenarios.json (if present) or the packaged kit."""
+    path = _scenarios_path(workspace)
+    if not path.is_file():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    raw_items = data.get("scenarios", ()) if isinstance(data, dict) else ()
+    dept_filter = department.strip().lower() if department else None
+    out: list[ScenarioRow] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        dept = str(item.get("department") or "")
+        if dept_filter and dept.lower() != dept_filter:
+            continue
+        sop_val = item.get("sop")
+        out.append(
+            ScenarioRow(
+                id=str(item.get("id") or ""),
+                department=dept,
+                title=str(item.get("title") or ""),
+                workflow=str(item.get("workflow") or ""),
+                sop=str(sop_val) if sop_val else None,
+            )
+        )
+    return out
+
+
+def show_scenario(scenario_id: str, workspace: Path | None = None) -> ScenarioRow:
+    """Return one scenario entry by exact or case-insensitive ID."""
+    needle = scenario_id.strip().lower()
+    for row in scenario_rows(workspace):
+        if row.id.lower() == needle:
+            return row
+    raise OrgKitError(f"unknown scenario {scenario_id!r}")
 
 
 def show_role(slug: str, workspace: Path | None = None) -> RoleDoc:
@@ -325,23 +549,33 @@ def init_workspace(
 
     plan: list[tuple[Path, Path]] = []
 
-    # Always copy org/ (3 files) and tasks/review-demo.json.
+    # Always copy org/ governance docs.
     for src in sorted((KIT_ROOT / "org").iterdir()):
         if src.is_file():
             plan.append((src, root / "org" / src.name))
-    plan.append((KIT_ROOT / "tasks" / "review-demo.json", root / "tasks" / "review-demo.json"))
 
-    if preset == "minimal":
-        for slug in MINIMAL_ROLES:
-            plan.append((KIT_ROOT / "roles" / f"{slug}.md", root / "roles" / f"{slug}.md"))
-        for wf_name in MINIMAL_WORKFLOWS:
-            plan.append((KIT_ROOT / "workflows" / wf_name, root / "workflows" / wf_name))
-    else:
-        for sub in ("roles", "sops", "workflows", "templates"):
+    if preset == "full":
+        for sub in ("roles", "sops", "workflows", "templates", "tasks"):
             for src in sorted((KIT_ROOT / sub).iterdir()):
                 if src.is_file():
                     plan.append((src, root / sub / src.name))
         plan.append((KIT_ROOT / "scenarios.json", root / "scenarios.json"))
+    else:
+        spec = PRESET_SPECS[preset]
+        for slug in spec.roles:
+            plan.append((KIT_ROOT / "roles" / f"{slug}.md", root / "roles" / f"{slug}.md"))
+        for wf_name in spec.workflows:
+            plan.append((KIT_ROOT / "workflows" / wf_name, root / "workflows" / wf_name))
+        for sop_name in spec.sops:
+            plan.append((KIT_ROOT / "sops" / sop_name, root / "sops" / sop_name))
+        for task_name in spec.tasks:
+            plan.append((KIT_ROOT / "tasks" / task_name, root / "tasks" / task_name))
+        if spec.include_templates:
+            for src in sorted((KIT_ROOT / "templates").iterdir()):
+                if src.is_file():
+                    plan.append((src, root / "templates" / src.name))
+        if spec.include_scenarios:
+            plan.append((KIT_ROOT / "scenarios.json", root / "scenarios.json"))
 
     written: list[str] = []
     skipped: list[str] = []

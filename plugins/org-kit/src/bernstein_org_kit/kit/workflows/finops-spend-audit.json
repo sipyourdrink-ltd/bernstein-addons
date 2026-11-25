@@ -1,0 +1,42 @@
+{
+  "name": "finops-spend-audit",
+  "completion_nodes": [
+    "budget-remediation-plan"
+  ],
+  "nodes": {
+    "collect-spend-telemetry": {
+      "role": "bi-automations",
+      "depends_on": [],
+      "timeout_seconds": 300
+    },
+    "detect-token-and-cloud-anomalies": {
+      "role": "finops-controller",
+      "depends_on": [
+        "collect-spend-telemetry"
+      ],
+      "timeout_seconds": 600
+    },
+    "evaluate-slo-and-routing-impact": {
+      "role": "runtime-reliability-engineer",
+      "depends_on": [
+        "detect-token-and-cloud-anomalies"
+      ],
+      "timeout_seconds": 600
+    },
+    "security-guardrail-floor-check": {
+      "role": "security-review",
+      "depends_on": [
+        "detect-token-and-cloud-anomalies"
+      ],
+      "timeout_seconds": 300
+    },
+    "budget-remediation-plan": {
+      "role": "cfo-finance",
+      "depends_on": [
+        "evaluate-slo-and-routing-impact",
+        "security-guardrail-floor-check"
+      ],
+      "timeout_seconds": 450
+    }
+  }
+}

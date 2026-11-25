@@ -1,0 +1,50 @@
+{
+  "name": "security-advisory-hotfix",
+  "completion_nodes": [
+    "prepare-advisory-release"
+  ],
+  "nodes": {
+    "triage-advisory": {
+      "role": "secops-responder",
+      "depends_on": [],
+      "timeout_seconds": 300
+    },
+    "reproduce-and-scope": {
+      "role": "qa-eval-engineer",
+      "depends_on": [
+        "triage-advisory"
+      ],
+      "timeout_seconds": 600
+    },
+    "draft-minimal-fix": {
+      "role": "tech-automations",
+      "depends_on": [
+        "triage-advisory"
+      ],
+      "timeout_seconds": 900
+    },
+    "verify-regression-suite": {
+      "role": "qa-eval-engineer",
+      "depends_on": [
+        "reproduce-and-scope",
+        "draft-minimal-fix"
+      ],
+      "timeout_seconds": 600
+    },
+    "review-security-patch": {
+      "role": "security-review",
+      "depends_on": [
+        "draft-minimal-fix",
+        "verify-regression-suite"
+      ],
+      "timeout_seconds": 600
+    },
+    "prepare-advisory-release": {
+      "role": "technical-supervisor",
+      "depends_on": [
+        "review-security-patch"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

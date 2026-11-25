@@ -1,0 +1,50 @@
+{
+  "name": "incident-postmortem",
+  "completion_nodes": [
+    "postmortem-signoff"
+  ],
+  "nodes": {
+    "stabilize-and-contain": {
+      "role": "technical-duty",
+      "depends_on": [],
+      "timeout_seconds": 300
+    },
+    "collect-timeline-evidence": {
+      "role": "runtime-reliability-engineer",
+      "depends_on": [
+        "stabilize-and-contain"
+      ],
+      "timeout_seconds": 600
+    },
+    "reproduce-root-cause": {
+      "role": "qa-eval-engineer",
+      "depends_on": [
+        "stabilize-and-contain"
+      ],
+      "timeout_seconds": 600
+    },
+    "draft-corrective-actions": {
+      "role": "tech-automations",
+      "depends_on": [
+        "collect-timeline-evidence",
+        "reproduce-root-cause"
+      ],
+      "timeout_seconds": 600
+    },
+    "security-impact-check": {
+      "role": "security-review",
+      "depends_on": [
+        "collect-timeline-evidence"
+      ],
+      "timeout_seconds": 450
+    },
+    "postmortem-signoff": {
+      "role": "technical-supervisor",
+      "depends_on": [
+        "draft-corrective-actions",
+        "security-impact-check"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

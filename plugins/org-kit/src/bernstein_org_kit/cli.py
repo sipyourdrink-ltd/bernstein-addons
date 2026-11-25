@@ -14,7 +14,9 @@ from bernstein_org_kit.kit import (
     PRESETS,
     init_workspace,
     role_rows,
+    scenario_rows,
     show_role,
+    show_scenario,
     show_sop,
     show_workflow,
     sop_rows,
@@ -67,7 +69,12 @@ def _parser() -> argparse.ArgumentParser:
         "--preset",
         choices=PRESETS,
         default=DEFAULT_PRESET,
-        help=f"Starter kit preset to install: minimal (6 developer roles, 3 workflows) or full (24 roles, 7 SOPs, 11 workflows) (default: {DEFAULT_PRESET}).",
+        help=(
+            "Starter kit preset to install: minimal (6 roles, 3 workflows), "
+            "engineering (14 roles, 8 workflows), secops (12 roles, 5 workflows), "
+            "product (14 roles, 6 workflows), compliance (19 roles, 6 workflows), "
+            f"or full (36 roles, 16 SOPs, 20 workflows) (default: {DEFAULT_PRESET})."
+        ),
     )
     s_init.add_argument(
         "--force",
@@ -104,6 +111,21 @@ def _parser() -> argparse.ArgumentParser:
     s_sops_show = sops_sub.add_parser("show", help="Display one SOP by ID or filename stem.")
     s_sops_show.add_argument("sop_id", help="SOP identifier to display (for example: SOP-OPS-01).")
     _workspace_arg(s_sops_show, suppress_default=True)
+
+    # scenarios
+    s_sc = sub.add_parser("scenarios", help="List or inspect starter kit operational scenarios.")
+    _workspace_arg(s_sc)
+    _json_arg(s_sc, help_text="Emit machine-readable JSON output.")
+    s_sc.add_argument("--department", default=None, help="Filter scenarios by department (for example: security, engineering, compliance, finance).")
+    sc_sub = s_sc.add_subparsers(dest="sc_cmd", metavar="ACTION", help="Optional scenario subcommand.")
+    s_sc_list = sc_sub.add_parser("list", help="List available scenarios in a summary table.")
+    _workspace_arg(s_sc_list, suppress_default=True)
+    _json_arg(s_sc_list, help_text="Emit machine-readable JSON output.", suppress_default=True)
+    s_sc_list.add_argument("--department", default=argparse.SUPPRESS, help="Filter scenarios by department.")
+    s_sc_show = sc_sub.add_parser("show", help="Display one scenario by ID.")
+    s_sc_show.add_argument("scenario_id", help="Scenario ID to display (for example: 22-ai-governance-review).")
+    _workspace_arg(s_sc_show, suppress_default=True)
+    _json_arg(s_sc_show, help_text="Emit scenario record as JSON.", suppress_default=True)
 
     # workflows
     s_wf = sub.add_parser("workflows", help="List, inspect, or compile workflow DAG definitions.")
@@ -285,6 +307,50 @@ def _cmd_sops(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_scenarios(args: argparse.Namespace) -> int:
+    ws = _resolve_workspace(args.workspace)
+    if args.sc_cmd == "show":
+        row = show_scenario(args.scenario_id, workspace=ws)
+        payload = {
+            "id": row.id,
+            "department": row.department,
+            "title": row.title,
+            "workflow": row.workflow,
+            "sop": row.sop,
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"id:         {row.id}")
+            print(f"department: {row.department}")
+            print(f"workflow:   {row.workflow}")
+            print(f"sop:        {row.sop or '-'}")
+            print(f"title:      {row.title}")
+        return 0
+    rows = scenario_rows(ws, department=getattr(args, "department", None))
+    if args.json:
+        print(
+            json.dumps(
+                [
+                    {
+                        "id": r.id,
+                        "department": r.department,
+                        "title": r.title,
+                        "workflow": r.workflow,
+                        "sop": r.sop,
+                    }
+                    for r in rows
+                ],
+                indent=2,
+            )
+        )
+        return 0
+    print(f"{'ID':30s} {'DEPT':14s} {'WORKFLOW':26s} {'SOP':12s} TITLE")
+    for r in rows:
+        print(f"{r.id:30s} {r.department:14s} {r.workflow:26s} {(r.sop or '-'):12s} {r.title}")
+    return 0
+
+
 def _cmd_workflows(args: argparse.Namespace) -> int:
     ws = _resolve_workspace(args.workspace)
     if args.wf_cmd == "show":
@@ -390,6 +456,8 @@ def run(argv: list[str]) -> int:
         return _cmd_roles(args)
     if args.cmd == "sops":
         return _cmd_sops(args)
+    if args.cmd == "scenarios":
+        return _cmd_scenarios(args)
     if args.cmd == "workflows":
         return _cmd_workflows(args)
     if args.cmd == "adapters":
