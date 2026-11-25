@@ -4,7 +4,7 @@
 
 Role charters, standard operating procedures, domain-scoped organisation presets, a deterministic workflow DAG compiler, and a fail-closed stage runner built on [Bernstein](https://pypi.org/project/bernstein/) and [`bernstein-role-pack`](https://github.com/sipyourdrink-ltd/bernstein-addons/blob/main/plugins/role-pack/README.md).
 
-`bernstein-org-kit` initializes a governed team workspace across **6 presets** (`minimal` by default: 6 developer roles, 3 workflows, and a validated `.sdd/role-pack/roles.toml`; domain presets `engineering`, `secops`, `product`, `compliance`; or `full`: 36 roles, 16 SOPs, 20 workflows, 32 scenarios, 9 authoring templates, and 6 starter tasks), compiles workflow JSON into SHA-256-hashed execution plans, invokes Bernstein's native CLI adapters (`claude`, `codex`, `gemini`, and 50+ others) with human approval-gate checks, and contributes an `AGENTS.md` governance section via Bernstein's plugin hook.
+`bernstein-org-kit` initializes a governed team workspace across **6 presets** (`minimal` by default: 6 developer roles, 3 workflows, and a validated `.sdd/role-pack/roles.toml`; domain presets `engineering`, `secops`, `product`, `compliance`; or `full`: 36 roles, 16 SOPs, 20 workflows, 32 scenarios, 9 authoring templates, and 6 starter tasks), compiles workflow JSON into SHA-256-hashed execution plans, invokes Bernstein's native CLI adapters (`claude`, `codex`, `gemini`, and the other registered adapters) with human approval-gate checks, and contributes an `AGENTS.md` governance section via Bernstein's plugin hook.
 
 ## Proof in one command
 
@@ -23,17 +23,26 @@ Role charters, standard operating procedures, domain-scoped organisation presets
 all steps behaved as stated
 ```
 
-Task IDs vary per run; adapter counts reflect the installed Bernstein version (54 on Bernstein 3.24.1, 55 on 4.0.x).
+Task IDs vary per run; the number in step 3 is the count of adapter names that the installed Bernstein version lists.
 
 ## Install
 
-From the repository root, with Python 3.12 or newer (installs the latest Bernstein `4.x` release):
+These packages (`bernstein-org-kit` and its dependency `bernstein-role-pack`) are not currently published on PyPI. With Python 3.12 or newer, pass both per-package git URLs in a single `pip install` command so `pip` resolves `bernstein-role-pack>=0.1.0` together with `bernstein-org-kit`:
 
 ```sh
 python3.12 -m venv .venv
 . .venv/bin/activate
-pip install "bernstein>=4.0.1,<5" ./plugins/role-pack ./plugins/org-kit
+pip install "bernstein>=4.0.1,<5"
+pip install \
+  "bernstein-role-pack @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@role-pack-v0.1.0#subdirectory=plugins/role-pack" \
+  "bernstein-org-kit @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@org-kit-v0.2.0#subdirectory=plugins/org-kit"
 bernstein-org-kit demo
+```
+
+Or from a local clone of `bernstein-addons` (repository root):
+
+```sh
+pip install "bernstein>=4.0.1,<5" -e ./plugins/role-pack -e ./plugins/org-kit
 ```
 
 ## Presets & Quickstart
@@ -105,7 +114,7 @@ bernstein-org-kit run document-review \
 
 - **Default is dry-run.** Without `--execute`, `run` validates the workflow DAG, checks human approval gates, verifies the adapter exists in Bernstein's registry, and prints the grounded prompt without starting a child process.
 - **Fail-closed human gates.** If the stage's role frontmatter declares `approval_gates` (such as `production-change`, `credentials`, `deletion`, `money`, or `external-send`), `run` refuses to proceed unless each gate is explicitly acknowledged via `--approve-gate <gate>`.
-- **Provider terms.** Each CLI adapter (`claude`, `codex`, `gemini`, `aider`, `opencode`, `goose`, and 50+ others registered in Bernstein) runs under the operator's own local installation, credentials, and provider terms. Use `--adapter mock` for offline tests without network calls or API keys.
+- **Provider terms.** Each CLI adapter (`claude`, `codex`, `gemini`, `aider`, `opencode`, `goose`, and the others registered in Bernstein) runs under the operator's own local installation, credentials, and provider terms. Use `--adapter mock` for offline tests without network calls or API keys.
 
 ## How it plugs into Bernstein
 
@@ -232,7 +241,7 @@ bernstein-org-kit run WORKFLOW --stage STAGE --objective TEXT [--adapter NAME] [
 python -m unittest discover -s plugins/org-kit/tests -v
 ```
 
-Tested on Python 3.12 against Bernstein `3.24.1` and `4.0.x`.
+Tested on Python 3.12 against Bernstein `3.24.1` and `4.0.0`.
 
 ## Licence
 

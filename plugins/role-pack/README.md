@@ -2,7 +2,7 @@
 
 ![plugin for Bernstein](../../assets/plugin-for-bernstein.svg)
 
-A plugin for the [Bernstein](https://pypi.org/project/bernstein/) orchestrator that adds three things to a workspace:
+A plugin for [Bernstein](https://pypi.org/project/bernstein/) that adds three things to a workspace:
 
 1. A registry of roles with reporting lines and review rights, and principals (session names) that hold a role.
 2. A receipt ledger with separate states per task: `delivered`, `acknowledged`, `reported`, `done`. A report is not `done`. A task is `done` only when every reported file was accepted by a different principal whose role may review the producer's role, and each acceptance names the exact sha256 of the reported file.
@@ -10,15 +10,23 @@ A plugin for the [Bernstein](https://pypi.org/project/bernstein/) orchestrator t
 
 ## Install
 
-```
+This package is not currently published on PyPI. Install directly from GitHub on Python 3.12 or newer using its per-package git tag (`role-pack-v0.1.0`):
+
+```sh
 python3.12 -m venv .venv
 . .venv/bin/activate
 pip install "bernstein==4.0.0"
-pip install ./plugins/role-pack
+pip install "bernstein-role-pack @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@role-pack-v0.1.0#subdirectory=plugins/role-pack"
 bernstein-role-pack demo
 ```
 
-Run from the repository root. The demo needs no model, no network access and no configuration.
+Or install in editable mode from a local repository clone:
+
+```sh
+pip install "bernstein==4.0.0" -e ./plugins/role-pack
+```
+
+The demo needs no model, no network access and no configuration.
 
 ## Demo
 
