@@ -2,7 +2,7 @@
 
 ![plugin for Bernstein](../../assets/plugin-for-bernstein.svg)
 
-A plugin for the [Bernstein](https://pypi.org/project/bernstein/) orchestrator that adds three things to a workspace:
+A plugin for [Bernstein](https://pypi.org/project/bernstein/) that adds three things to a workspace:
 
 1. A registry of roles with reporting lines and review rights, and principals (session names) that hold a role.
 2. A receipt ledger with separate states per task: `delivered`, `acknowledged`, `reported`, `done`. A report is not `done`. A task is `done` only when every reported file was accepted by a different principal whose role may review the producer's role, and each acceptance names the exact sha256 of the reported file.
