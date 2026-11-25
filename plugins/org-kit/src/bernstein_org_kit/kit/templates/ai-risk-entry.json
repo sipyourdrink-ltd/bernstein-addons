@@ -1,0 +1,21 @@
+{
+  "system_id": "agent-workflow-example",
+  "workflow": "ai-governance-review",
+  "eu_ai_act_tier": "limited-risk",
+  "iso_42001_controls": [
+    "A.6.2.6",
+    "A.8.4",
+    "A.9.3"
+  ],
+  "owasp_agentic_mitigations": [
+    "ASI01-goal-hijack",
+    "ASI02-tool-misuse",
+    "ASI04-supply-chain"
+  ],
+  "human_approval_gates": [
+    "production-change",
+    "external-send",
+    "personal-data"
+  ],
+  "independent_acceptance": "artifact-sha256"
+}

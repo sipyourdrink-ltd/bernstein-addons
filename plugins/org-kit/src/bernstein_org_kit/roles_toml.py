@@ -44,6 +44,11 @@ PEER_REVIEWS: dict[str, tuple[str, ...]] = {
         "runtime-reliability-engineer",
         "technical-duty",
         "bi-automations",
+        "data-platform-engineer",
+        "qa-eval-engineer",
+        "release-manager",
+        "finops-controller",
+        "solutions-architect",
     ),
     "technical-supervisor": (
         "tech-automations",
@@ -52,6 +57,22 @@ PEER_REVIEWS: dict[str, tuple[str, ...]] = {
         "cloud-infra",
         "swarm-coordinator",
         "upstream",
+    ),
+    "qa-eval-engineer": (
+        "tech-automations",
+        "rnd",
+        "data-platform-engineer",
+        "secops-responder",
+    ),
+    "ai-governance-officer": (
+        "ai-red-teamer",
+        "qa-eval-engineer",
+        "tech-automations",
+        "finops-controller",
+    ),
+    "ux-design-reviewer": (
+        "product-manager",
+        "tech-automations",
     ),
     "rnd": ("tech-automations",),
 }

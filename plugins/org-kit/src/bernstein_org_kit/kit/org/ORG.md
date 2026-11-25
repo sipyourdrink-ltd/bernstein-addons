@@ -19,27 +19,39 @@ The kit runs on Bernstein, the open-source engine that schedules tasks, tracks a
 ```
 owner
 ├── ceo
-│   ├── deep-research
+│   ├── ai-governance-officer
+│   ├── chief-of-staff
 │   ├── communications-controller
+│   ├── deep-research
+│   ├── vp-product
+│   │   ├── product-manager
+│   │   └── ux-design-reviewer
 │   └── writer-prompter
 ├── cto-tech
 │   ├── cloud-infra
-│   ├── tech-automations
 │   ├── rnd
 │   ├── security-review
+│   │   ├── ai-red-teamer
+│   │   └── secops-responder
+│   ├── swarm-coordinator
+│   ├── tech-automations
 │   ├── technical-supervisor
+│   │   ├── data-platform-engineer
+│   │   ├── qa-eval-engineer
+│   │   ├── release-manager
 │   │   ├── runtime-reliability-engineer
 │   │   └── technical-duty
-│   ├── swarm-coordinator
 │   └── upstream
 ├── cfo-finance
-│   └── bi-automations
+│   ├── bi-automations
+│   └── finops-controller
 ├── legal-director
-│   ├── legal-counsel
-│   ├── legal-contracts
+│   ├── legal-assistant
 │   ├── legal-compliance
-│   └── legal-assistant
+│   ├── legal-contracts
+│   └── legal-counsel
 ├── vp-sales
+│   └── solutions-architect
 ├── hr-director
 └── advisor
 ```
@@ -57,25 +69,37 @@ The owner is the human operator. The owner is the root of the tree and the final
 | vp-sales | VP Sales | sales | owner |
 | hr-director | HR Director | people | owner |
 | advisor | Advisor | executive | owner |
+| vp-product | VP of Product | product | ceo |
+| product-manager | Product Manager | product | vp-product |
+| ux-design-reviewer | UX and Accessibility Reviewer | product | vp-product |
+| ai-governance-officer | AI Governance Officer | compliance | ceo |
+| chief-of-staff | Chief of Staff and Program Lead | operations | ceo |
+| deep-research | Deep Research Analyst | research | ceo |
+| communications-controller | Communications Controller | communications | ceo |
+| writer-prompter | Writer and Prompt Author | communications | ceo |
 | cloud-infra | Cloud Infrastructure | engineering | cto-tech |
 | tech-automations | Technical Automations | engineering | cto-tech |
 | rnd | Research and Development | engineering | cto-tech |
 | security-review | Security Review | engineering | cto-tech |
+| ai-red-teamer | Agentic Security and MCP Auditor | security | security-review |
+| secops-responder | SecOps and Vulnerability Responder | security | security-review |
 | technical-supervisor | Technical Supervisor | engineering | cto-tech |
-| swarm-coordinator | Swarm Coordinator | engineering | cto-tech |
-| upstream | Upstream Contributions | engineering | cto-tech |
 | runtime-reliability-engineer | Runtime Reliability Engineer | operations | technical-supervisor |
 | technical-duty | Technical Duty Officer | operations | technical-supervisor |
+| data-platform-engineer | Data and Migration Engineer | engineering | technical-supervisor |
+| qa-eval-engineer | QA and Agent Evaluation Engineer | engineering | technical-supervisor |
+| release-manager | Release and Packaging Manager | engineering | technical-supervisor |
+| swarm-coordinator | Swarm Coordinator | engineering | cto-tech |
+| upstream | Upstream Contributions | engineering | cto-tech |
 | bi-automations | Business Intelligence Automations | operations | cfo-finance |
+| finops-controller | Cloud and AI FinOps Controller | finance | cfo-finance |
 | legal-counsel | Legal Counsel (Drafting) | legal | legal-director |
 | legal-contracts | Legal Contracts Reviewer | legal | legal-director |
 | legal-compliance | Legal Compliance Reviewer | legal | legal-director |
 | legal-assistant | Legal Assistant | legal | legal-director |
-| deep-research | Deep Research Analyst | research | ceo |
-| communications-controller | Communications Controller | communications | ceo |
-| writer-prompter | Writer and Prompt Author | communications | ceo |
+| solutions-architect | Solutions Architect and Customer Escalations | sales | vp-sales |
 
-Span check: owner has 7 reports. cto-tech has 7. technical-supervisor has 2. legal-director has 4. ceo has 3. cfo-finance has 1. No role exceeds 7.
+Span check: owner has 7 reports. cto-tech has 7. ceo has 6. technical-supervisor has 5. legal-director has 4. vp-product has 2. security-review has 2. cfo-finance has 2. vp-sales has 1. No role exceeds 7.
 
 ## Span of control and unity of command
 

@@ -1,0 +1,42 @@
+{
+  "name": "mcp-plugin-vetting",
+  "completion_nodes": [
+    "vetting-verdict"
+  ],
+  "nodes": {
+    "inventory-permissions": {
+      "role": "secops-responder",
+      "depends_on": [],
+      "timeout_seconds": 300
+    },
+    "static-supply-chain-scan": {
+      "role": "security-review",
+      "depends_on": [
+        "inventory-permissions"
+      ],
+      "timeout_seconds": 600
+    },
+    "adversarial-tool-misuse-review": {
+      "role": "ai-red-teamer",
+      "depends_on": [
+        "inventory-permissions"
+      ],
+      "timeout_seconds": 600
+    },
+    "compliance-data-check": {
+      "role": "legal-compliance",
+      "depends_on": [
+        "static-supply-chain-scan",
+        "adversarial-tool-misuse-review"
+      ],
+      "timeout_seconds": 450
+    },
+    "vetting-verdict": {
+      "role": "cto-tech",
+      "depends_on": [
+        "compliance-data-check"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

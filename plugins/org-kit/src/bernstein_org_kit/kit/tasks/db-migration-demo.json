@@ -1,0 +1,12 @@
+{
+  "id": "db-migration-demo",
+  "objective": "Prepare expand-backfill-contract schema migration with row-parity check and rehearsed rollback.",
+  "domain": "engineering",
+  "privacy": "internal",
+  "workflow": "zero-downtime-migration",
+  "budget": {
+    "max_worker_calls": 6,
+    "max_concurrency": 3,
+    "deadline_seconds": 1800
+  }
+}

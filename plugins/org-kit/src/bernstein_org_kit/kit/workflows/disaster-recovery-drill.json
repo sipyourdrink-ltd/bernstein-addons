@@ -1,0 +1,42 @@
+{
+  "name": "disaster-recovery-drill",
+  "completion_nodes": [
+    "dr-readiness-receipt"
+  ],
+  "nodes": {
+    "snapshot-state-inventory": {
+      "role": "cloud-infra",
+      "depends_on": [],
+      "timeout_seconds": 300
+    },
+    "execute-isolated-restore": {
+      "role": "runtime-reliability-engineer",
+      "depends_on": [
+        "snapshot-state-inventory"
+      ],
+      "timeout_seconds": 900
+    },
+    "verify-data-parity": {
+      "role": "data-platform-engineer",
+      "depends_on": [
+        "execute-isolated-restore"
+      ],
+      "timeout_seconds": 600
+    },
+    "verify-secrets-and-boundaries": {
+      "role": "security-review",
+      "depends_on": [
+        "execute-isolated-restore"
+      ],
+      "timeout_seconds": 450
+    },
+    "dr-readiness-receipt": {
+      "role": "cto-tech",
+      "depends_on": [
+        "verify-data-parity",
+        "verify-secrets-and-boundaries"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

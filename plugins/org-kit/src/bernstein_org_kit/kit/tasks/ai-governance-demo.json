@@ -1,0 +1,12 @@
+{
+  "id": "ai-governance-demo",
+  "objective": "Assess multi-agent workflow against ISO/IEC 42001, EU AI Act transparency, and OWASP Agentic Top 10.",
+  "domain": "compliance",
+  "privacy": "internal",
+  "workflow": "ai-governance-review",
+  "budget": {
+    "max_worker_calls": 6,
+    "max_concurrency": 3,
+    "deadline_seconds": 1500
+  }
+}

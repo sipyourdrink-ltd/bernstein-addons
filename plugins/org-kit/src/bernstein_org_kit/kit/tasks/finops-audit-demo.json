@@ -1,0 +1,12 @@
+{
+  "id": "finops-audit-demo",
+  "objective": "Audit monthly cloud and LLM token spend for retry loops and model-tier routing drift.",
+  "domain": "finance",
+  "privacy": "internal",
+  "workflow": "finops-spend-audit",
+  "budget": {
+    "max_worker_calls": 5,
+    "max_concurrency": 2,
+    "deadline_seconds": 1200
+  }
+}

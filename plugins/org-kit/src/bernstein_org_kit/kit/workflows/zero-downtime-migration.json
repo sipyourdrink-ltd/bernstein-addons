@@ -1,0 +1,50 @@
+{
+  "name": "zero-downtime-migration",
+  "completion_nodes": [
+    "migration-signoff"
+  ],
+  "nodes": {
+    "author-expand-migration": {
+      "role": "data-platform-engineer",
+      "depends_on": [],
+      "timeout_seconds": 900
+    },
+    "rehearse-rollback": {
+      "role": "runtime-reliability-engineer",
+      "depends_on": [
+        "author-expand-migration"
+      ],
+      "timeout_seconds": 600
+    },
+    "verify-row-parity": {
+      "role": "qa-eval-engineer",
+      "depends_on": [
+        "author-expand-migration"
+      ],
+      "timeout_seconds": 600
+    },
+    "review-migration-safety": {
+      "role": "security-review",
+      "depends_on": [
+        "author-expand-migration"
+      ],
+      "timeout_seconds": 450
+    },
+    "stage-cutover-plan": {
+      "role": "release-manager",
+      "depends_on": [
+        "rehearse-rollback",
+        "verify-row-parity",
+        "review-migration-safety"
+      ],
+      "timeout_seconds": 300
+    },
+    "migration-signoff": {
+      "role": "technical-supervisor",
+      "depends_on": [
+        "stage-cutover-plan"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

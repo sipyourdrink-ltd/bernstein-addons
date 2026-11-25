@@ -1,0 +1,50 @@
+{
+  "name": "spec-to-release",
+  "completion_nodes": [
+    "launch-readiness"
+  ],
+  "nodes": {
+    "frame-prd-and-criteria": {
+      "role": "product-manager",
+      "depends_on": [],
+      "timeout_seconds": 600
+    },
+    "ux-and-accessibility-check": {
+      "role": "ux-design-reviewer",
+      "depends_on": [
+        "frame-prd-and-criteria"
+      ],
+      "timeout_seconds": 450
+    },
+    "implement-feature": {
+      "role": "tech-automations",
+      "depends_on": [
+        "frame-prd-and-criteria"
+      ],
+      "timeout_seconds": 1200
+    },
+    "verify-eval-and-regression": {
+      "role": "qa-eval-engineer",
+      "depends_on": [
+        "ux-and-accessibility-check",
+        "implement-feature"
+      ],
+      "timeout_seconds": 600
+    },
+    "security-gate": {
+      "role": "security-review",
+      "depends_on": [
+        "implement-feature"
+      ],
+      "timeout_seconds": 450
+    },
+    "launch-readiness": {
+      "role": "vp-product",
+      "depends_on": [
+        "verify-eval-and-regression",
+        "security-gate"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

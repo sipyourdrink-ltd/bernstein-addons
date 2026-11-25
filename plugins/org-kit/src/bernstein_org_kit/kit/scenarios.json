@@ -118,6 +118,111 @@
       "title": "Messages across channels need routing by urgency",
       "workflow": "executive-teammate",
       "sop": "SOP-OPS-03"
+    },
+    {
+      "id": "18-security-advisory-hotfix",
+      "department": "security",
+      "title": "Inbound CVE or vulnerability report needs embargoed patch and regression proof",
+      "workflow": "security-advisory-hotfix",
+      "sop": "SOP-SEC-01"
+    },
+    {
+      "id": "19-security-advisory-hotfix",
+      "department": "security",
+      "title": "Transitive dependency advisory needs reachability check and upgrade PR",
+      "workflow": "security-advisory-hotfix",
+      "sop": "SOP-SEC-01"
+    },
+    {
+      "id": "20-mcp-plugin-vetting",
+      "department": "security",
+      "title": "Team wants to enable a third-party MCP server or agent plugin",
+      "workflow": "mcp-plugin-vetting",
+      "sop": "SOP-SEC-02"
+    },
+    {
+      "id": "21-mcp-plugin-vetting",
+      "department": "security",
+      "title": "Updated external skill bundle requests broader shell or credential scope",
+      "workflow": "mcp-plugin-vetting",
+      "sop": "SOP-SEC-02"
+    },
+    {
+      "id": "22-ai-governance-review",
+      "department": "compliance",
+      "title": "New autonomous workflow needs ISO 42001 and OWASP Agentic risk sign-off",
+      "workflow": "ai-governance-review",
+      "sop": "SOP-GOV-01"
+    },
+    {
+      "id": "23-ai-governance-review",
+      "department": "compliance",
+      "title": "Quarterly EU AI Act transparency and human-oversight audit falls due",
+      "workflow": "ai-governance-review",
+      "sop": "SOP-GOV-01"
+    },
+    {
+      "id": "24-finops-spend-audit",
+      "department": "finance",
+      "title": "LLM token or cloud spend spikes above weekly budget threshold",
+      "workflow": "finops-spend-audit",
+      "sop": "SOP-FIN-02"
+    },
+    {
+      "id": "25-finops-spend-audit",
+      "department": "finance",
+      "title": "Monthly model-tier routing efficiency review before commitment renewal",
+      "workflow": "finops-spend-audit",
+      "sop": "SOP-FIN-02"
+    },
+    {
+      "id": "26-zero-downtime-migration",
+      "department": "engineering",
+      "title": "Production table needs zero-downtime column split and backfill",
+      "workflow": "zero-downtime-migration",
+      "sop": "SOP-ENG-01"
+    },
+    {
+      "id": "27-zero-downtime-migration",
+      "department": "engineering",
+      "title": "Legacy ETL pipeline dialect migration requires row-hash parity proof",
+      "workflow": "zero-downtime-migration",
+      "sop": "SOP-ENG-01"
+    },
+    {
+      "id": "28-incident-postmortem",
+      "department": "operations",
+      "title": "Production outage resolved; blameless timeline and regression test required",
+      "workflow": "incident-postmortem",
+      "sop": "SOP-OPS-04"
+    },
+    {
+      "id": "29-disaster-recovery-drill",
+      "department": "operations",
+      "title": "Quarterly backup restore drill must verify RTO, RPO and WAL integrity",
+      "workflow": "disaster-recovery-drill",
+      "sop": "SOP-OPS-05"
+    },
+    {
+      "id": "30-spec-to-release",
+      "department": "product",
+      "title": "New customer-facing feature moves from PRD through UX, QA and security gates",
+      "workflow": "spec-to-release",
+      "sop": "SOP-PROD-01"
+    },
+    {
+      "id": "31-vendor-security-rfp",
+      "department": "sales",
+      "title": "Enterprise prospect sends 120-question security and architecture RFP",
+      "workflow": "vendor-security-rfp",
+      "sop": "SOP-SALES-01"
+    },
+    {
+      "id": "32-vendor-security-rfp",
+      "department": "sales",
+      "title": "Existing enterprise customer requests annual SOC2 and AI governance renewal pack",
+      "workflow": "vendor-security-rfp",
+      "sop": "SOP-SALES-01"
     }
   ]
 }

@@ -1,0 +1,49 @@
+{
+  "name": "vendor-security-rfp",
+  "completion_nodes": [
+    "approved-response-pack"
+  ],
+  "nodes": {
+    "extract-questionnaire-items": {
+      "role": "legal-assistant",
+      "depends_on": [],
+      "timeout_seconds": 300
+    },
+    "draft-architecture-answers": {
+      "role": "solutions-architect",
+      "depends_on": [
+        "extract-questionnaire-items"
+      ],
+      "timeout_seconds": 600
+    },
+    "compile-security-evidence": {
+      "role": "security-review",
+      "depends_on": [
+        "extract-questionnaire-items"
+      ],
+      "timeout_seconds": 600
+    },
+    "review-contract-commitments": {
+      "role": "legal-contracts",
+      "depends_on": [
+        "draft-architecture-answers",
+        "compile-security-evidence"
+      ],
+      "timeout_seconds": 600
+    },
+    "adversarial-claims-check": {
+      "role": "legal-compliance",
+      "depends_on": [
+        "review-contract-commitments"
+      ],
+      "timeout_seconds": 450
+    },
+    "approved-response-pack": {
+      "role": "vp-sales",
+      "depends_on": [
+        "adversarial-claims-check"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}
