@@ -1,0 +1,49 @@
+{
+  "name": "procure-to-pay-3way",
+  "completion_nodes": [
+    "payment-decision"
+  ],
+  "nodes": {
+    "extract-documents": {
+      "role": "bi-automations",
+      "depends_on": [],
+      "timeout_seconds": 600
+    },
+    "three-way-match": {
+      "role": "bi-automations",
+      "depends_on": [
+        "extract-documents"
+      ],
+      "timeout_seconds": 900
+    },
+    "fraud-check": {
+      "role": "security-review",
+      "depends_on": [
+        "three-way-match"
+      ],
+      "timeout_seconds": 900
+    },
+    "contract-terms-check": {
+      "role": "legal-contracts",
+      "depends_on": [
+        "three-way-match"
+      ],
+      "timeout_seconds": 900
+    },
+    "finance-review": {
+      "role": "cfo-finance",
+      "depends_on": [
+        "fraud-check",
+        "contract-terms-check"
+      ],
+      "timeout_seconds": 900
+    },
+    "payment-decision": {
+      "role": "cfo-finance",
+      "depends_on": [
+        "finance-review"
+      ],
+      "timeout_seconds": 600
+    }
+  }
+}

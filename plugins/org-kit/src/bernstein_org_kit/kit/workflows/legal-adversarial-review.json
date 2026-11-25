@@ -1,0 +1,77 @@
+{
+  "name": "legal-adversarial-review",
+  "completion_nodes": [
+    "counsel-review-package"
+  ],
+  "nodes": {
+    "intake": {
+      "role": "legal-counsel",
+      "depends_on": [],
+      "timeout_seconds": 600
+    },
+    "extract-facts": {
+      "role": "legal-assistant",
+      "depends_on": [
+        "intake"
+      ],
+      "timeout_seconds": 900
+    },
+    "verify-citations": {
+      "role": "legal-compliance",
+      "depends_on": [
+        "extract-facts"
+      ],
+      "timeout_seconds": 900
+    },
+    "challenge": {
+      "role": "legal-counsel",
+      "depends_on": [
+        "verify-citations"
+      ],
+      "timeout_seconds": 1200
+    },
+    "advocacy-rights": {
+      "role": "legal-contracts",
+      "depends_on": [
+        "challenge"
+      ],
+      "timeout_seconds": 1200
+    },
+    "advocacy-obligations": {
+      "role": "legal-contracts",
+      "depends_on": [
+        "challenge"
+      ],
+      "timeout_seconds": 1200
+    },
+    "critic": {
+      "role": "legal-compliance",
+      "depends_on": [
+        "advocacy-rights",
+        "advocacy-obligations"
+      ],
+      "timeout_seconds": 1200
+    },
+    "verdict": {
+      "role": "legal-counsel",
+      "depends_on": [
+        "critic"
+      ],
+      "timeout_seconds": 900
+    },
+    "final-draft": {
+      "role": "legal-contracts",
+      "depends_on": [
+        "verdict"
+      ],
+      "timeout_seconds": 900
+    },
+    "counsel-review-package": {
+      "role": "legal-director",
+      "depends_on": [
+        "final-draft"
+      ],
+      "timeout_seconds": 600
+    }
+  }
+}

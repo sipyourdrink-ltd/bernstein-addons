@@ -27,6 +27,29 @@ jobs:
       - name: Demo
         run: bernstein-role-pack demo
 
+  org-kit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bernstein: ["3.24.1", "4.0.0"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install "bernstein==${{ matrix.bernstein }}" ./plugins/role-pack ./plugins/org-kit
+      - name: Unit tests
+        working-directory: plugins/org-kit
+        run: python -m unittest discover -s tests -v
+      - name: Demo
+        run: bernstein-org-kit demo
+      - name: Package and CLI
+        run: |
+          pip wheel --no-deps ./plugins/org-kit --wheel-dir /tmp/org-kit-wheel
+          bernstein-org-kit --help
+
   contract-tests:
     runs-on: ubuntu-latest
     steps:

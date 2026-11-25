@@ -1,0 +1,8 @@
+{
+  "id": "review-demo",
+  "objective": "Review the sample documentation changes.",
+  "domain": "code",
+  "privacy": "public",
+  "workflow": "document-review",
+  "budget": {"max_worker_calls": 0, "max_concurrency": 1, "deadline_seconds": 300}
+}

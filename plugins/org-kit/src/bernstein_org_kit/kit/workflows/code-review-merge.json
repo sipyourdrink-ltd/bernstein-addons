@@ -1,0 +1,43 @@
+{
+  "name": "code-review-merge",
+  "completion_nodes": [
+    "merge"
+  ],
+  "nodes": {
+    "draft-change": {
+      "role": "tech-automations",
+      "depends_on": [],
+      "timeout_seconds": 1800
+    },
+    "review-correctness": {
+      "role": "rnd",
+      "depends_on": [
+        "draft-change"
+      ],
+      "timeout_seconds": 1200
+    },
+    "review-security": {
+      "role": "security-review",
+      "depends_on": [
+        "draft-change"
+      ],
+      "timeout_seconds": 1200
+    },
+    "run-tests": {
+      "role": "tech-automations",
+      "depends_on": [
+        "draft-change"
+      ],
+      "timeout_seconds": 1800
+    },
+    "merge": {
+      "role": "technical-supervisor",
+      "depends_on": [
+        "review-correctness",
+        "review-security",
+        "run-tests"
+      ],
+      "timeout_seconds": 600
+    }
+  }
+}

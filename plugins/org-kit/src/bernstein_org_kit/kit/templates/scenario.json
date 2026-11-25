@@ -1,0 +1,6 @@
+{
+  "scenario": "documentation-review",
+  "task_example": "../tasks/review-demo.json",
+  "workflow": "document-review",
+  "completion": ["collect-input accepted", "review-packet accepted"]
+}

@@ -1,0 +1,41 @@
+{
+  "name": "plan-then-execute",
+  "completion_nodes": [
+    "final-review"
+  ],
+  "nodes": {
+    "plan": {
+      "role": "cto-tech",
+      "depends_on": [],
+      "timeout_seconds": 1200
+    },
+    "plan-review": {
+      "role": "technical-supervisor",
+      "depends_on": [
+        "plan"
+      ],
+      "timeout_seconds": 900
+    },
+    "implement": {
+      "role": "swarm-coordinator",
+      "depends_on": [
+        "plan-review"
+      ],
+      "timeout_seconds": 3000
+    },
+    "test": {
+      "role": "tech-automations",
+      "depends_on": [
+        "implement"
+      ],
+      "timeout_seconds": 1800
+    },
+    "final-review": {
+      "role": "security-review",
+      "depends_on": [
+        "test"
+      ],
+      "timeout_seconds": 1200
+    }
+  }
+}

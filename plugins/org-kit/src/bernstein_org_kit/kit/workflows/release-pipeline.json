@@ -1,0 +1,49 @@
+{
+  "name": "release-pipeline",
+  "completion_nodes": [
+    "deploy-decision"
+  ],
+  "nodes": {
+    "decompose": {
+      "role": "cto-tech",
+      "depends_on": [],
+      "timeout_seconds": 900
+    },
+    "build": {
+      "role": "tech-automations",
+      "depends_on": [
+        "decompose"
+      ],
+      "timeout_seconds": 1800
+    },
+    "test": {
+      "role": "tech-automations",
+      "depends_on": [
+        "build"
+      ],
+      "timeout_seconds": 1800
+    },
+    "security-scan": {
+      "role": "security-review",
+      "depends_on": [
+        "build"
+      ],
+      "timeout_seconds": 1200
+    },
+    "release-review": {
+      "role": "technical-supervisor",
+      "depends_on": [
+        "test",
+        "security-scan"
+      ],
+      "timeout_seconds": 900
+    },
+    "deploy-decision": {
+      "role": "cto-tech",
+      "depends_on": [
+        "release-review"
+      ],
+      "timeout_seconds": 600
+    }
+  }
+}

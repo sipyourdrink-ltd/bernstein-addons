@@ -1,0 +1,7 @@
+{
+  "routes": [
+    {"stage": "collect-input", "role": "deterministic-extractor", "handler": "workflow_stage"},
+    {"stage": "review-packet", "role": "review-coordinator", "handler": "workflow_stage"}
+  ],
+  "acceptance": {"identity": "independent-reviewer", "evidence": "artifact-sha256"}
+}

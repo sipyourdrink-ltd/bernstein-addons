@@ -1,0 +1,49 @@
+{
+  "name": "support-resolution",
+  "completion_nodes": [
+    "close-ticket"
+  ],
+  "nodes": {
+    "triage": {
+      "role": "technical-duty",
+      "depends_on": [],
+      "timeout_seconds": 600
+    },
+    "retrieve-solution": {
+      "role": "bi-automations",
+      "depends_on": [
+        "triage"
+      ],
+      "timeout_seconds": 600
+    },
+    "propose-remediation": {
+      "role": "tech-automations",
+      "depends_on": [
+        "retrieve-solution"
+      ],
+      "timeout_seconds": 1200
+    },
+    "review-remediation": {
+      "role": "technical-supervisor",
+      "depends_on": [
+        "propose-remediation"
+      ],
+      "timeout_seconds": 900
+    },
+    "escalation-gate": {
+      "role": "cto-tech",
+      "depends_on": [
+        "triage",
+        "review-remediation"
+      ],
+      "timeout_seconds": 600
+    },
+    "close-ticket": {
+      "role": "technical-duty",
+      "depends_on": [
+        "escalation-gate"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

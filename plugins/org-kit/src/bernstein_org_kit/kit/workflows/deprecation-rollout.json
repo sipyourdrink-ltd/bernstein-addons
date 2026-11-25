@@ -1,0 +1,55 @@
+{
+  "name": "deprecation-rollout",
+  "completion_nodes": [
+    "remove-old-surface"
+  ],
+  "nodes": {
+    "publish-rfc": {
+      "role": "cto-tech",
+      "depends_on": [],
+      "timeout_seconds": 1200
+    },
+    "notify-consumers": {
+      "role": "communications-controller",
+      "depends_on": [
+        "publish-rfc"
+      ],
+      "timeout_seconds": 900
+    },
+    "ship-new-surface": {
+      "role": "tech-automations",
+      "depends_on": [
+        "notify-consumers"
+      ],
+      "timeout_seconds": 1800
+    },
+    "emit-warnings": {
+      "role": "tech-automations",
+      "depends_on": [
+        "ship-new-surface"
+      ],
+      "timeout_seconds": 1200
+    },
+    "monitor-migration": {
+      "role": "runtime-reliability-engineer",
+      "depends_on": [
+        "emit-warnings"
+      ],
+      "timeout_seconds": 3600
+    },
+    "removal-decision": {
+      "role": "cto-tech",
+      "depends_on": [
+        "monitor-migration"
+      ],
+      "timeout_seconds": 600
+    },
+    "remove-old-surface": {
+      "role": "tech-automations",
+      "depends_on": [
+        "removal-decision"
+      ],
+      "timeout_seconds": 1800
+    }
+  }
+}
