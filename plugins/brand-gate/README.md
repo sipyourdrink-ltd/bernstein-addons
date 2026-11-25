@@ -6,13 +6,19 @@ For a selected tool, a valid destination and a supported environment, it invokes
 
 ## Install
 
-From the repository root, with Python 3.12 or newer:
+This package is not currently published on PyPI. Install directly from GitHub with Python 3.12 or newer using its per-package git tag (`brand-gate-v0.1.0`):
 
 ```sh
-pip install ./plugins/brand-gate
+pip install "bernstein-brand-gate @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@brand-gate-v0.1.0#subdirectory=plugins/brand-gate"
 ```
 
-The plugin is version `0.1.0`, marked Unreleased in [CHANGELOG.md](CHANGELOG.md), and is installed from this checkout. The package depends on `bernstein>=3.24.1,<5` and `brand-impersonation-detector>=0.1.1,<0.2`. It includes no detector implementation. CI tests Bernstein 3.24.1 and 4.0.0, each with detector 0.1.1, on Python 3.12; other versions in the dependency ranges are not tested.
+Or from the repository root of a local checkout:
+
+```sh
+pip install -e ./plugins/brand-gate
+```
+
+The plugin is version `0.1.0` (git tag `brand-gate-v0.1.0`, marked Unreleased in [CHANGELOG.md](CHANGELOG.md) until tagged on `main`). The package depends on `bernstein>=3.24.1,<5` and `brand-impersonation-detector>=0.1.1,<0.2`. It includes no detector implementation. CI tests Bernstein 3.24.1 and 4.0.0, each with detector 0.1.1, on Python 3.12; other versions in the dependency ranges are not tested.
 
 ## Configure
 

@@ -105,3 +105,88 @@ jobs:
         run: |
           pip wheel --no-deps ./plugins/brand-gate --wheel-dir /tmp/brand-gate-wheel
           bernstein-brand-gate --help
+
+  git-url-install:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bernstein: ["3.24.1", "4.0.0"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify README tag pins and stage local tags on HEAD
+        run: |
+          python - <<'PY'
+          import pathlib
+          import subprocess
+          import tomllib
+
+          repo_url = "https://github.com/sipyourdrink-ltd/bernstein-addons"
+          root_readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+          tag_doc = pathlib.Path("docs/tag-scheme.md").read_text(encoding="utf-8")
+          assert "not currently published on PyPI" in root_readme, "root README missing PyPI notice"
+
+          tags: dict[str, str] = {}
+          for slug in ("role-pack", "org-kit", "brand-gate", "sandcastle"):
+              pyproject = pathlib.Path("plugins") / slug / "pyproject.toml"
+              data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+              pkg_name = data["project"]["name"]
+              version = data["project"]["version"]
+              tag = f"{slug}-v{version}"
+              tags[slug] = tag
+
+              expected_spec = f"{pkg_name} @ git+{repo_url}@{tag}#subdirectory=plugins/{slug}"
+              plugin_readme = (pathlib.Path("plugins") / slug / "README.md").read_text(encoding="utf-8")
+              assert "not currently published on PyPI" in plugin_readme, f"{slug} README missing PyPI notice"
+              assert expected_spec in root_readme, f"root README missing {expected_spec}"
+              assert expected_spec in plugin_readme, f"{slug} README missing {expected_spec}"
+              assert tag in tag_doc, f"docs/tag-scheme.md missing {tag}"
+
+              subprocess.run(["git", "tag", "-f", tag, "HEAD"], check=True)
+
+          org_readme = pathlib.Path("plugins/org-kit/README.md").read_text(encoding="utf-8")
+          role_spec = f"bernstein-role-pack @ git+{repo_url}@{tags['role-pack']}#subdirectory=plugins/role-pack"
+          assert role_spec in org_readme, "org-kit README missing companion role-pack git URL"
+          PY
+          git config --global url."file://$GITHUB_WORKSPACE".insteadOf "https://github.com/sipyourdrink-ltd/bernstein-addons"
+      - name: Install each documented git URL in a clean venv and run --help
+        run: |
+          set -euo pipefail
+          ROLE_TAG="role-pack-v$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('plugins/role-pack/pyproject.toml').read_text())['project']['version'])")"
+          ORG_TAG="org-kit-v$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('plugins/org-kit/pyproject.toml').read_text())['project']['version'])")"
+          BRAND_TAG="brand-gate-v$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('plugins/brand-gate/pyproject.toml').read_text())['project']['version'])")"
+          SAND_TAG="sandcastle-v$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('plugins/sandcastle/pyproject.toml').read_text())['project']['version'])")"
+
+          mkdir -p /tmp/git-url-smoke
+          cd /tmp/git-url-smoke
+          printf 'bernstein==%s\n' "${{ matrix.bernstein }}" > /tmp/git-url-smoke/constraints.txt
+          export PIP_CONSTRAINT=/tmp/git-url-smoke/constraints.txt
+
+          check_venv() {
+            local slug="$1"
+            shift
+            local vdir="/tmp/git-url-smoke/venv-${slug}"
+            python -m venv "$vdir"
+            "$vdir/bin/pip" install "bernstein==${{ matrix.bernstein }}"
+            "$vdir/bin/pip" install "$@"
+            "$vdir/bin/python" -c "import importlib.metadata as m; assert m.version('bernstein') == '${{ matrix.bernstein }}'"
+            "$vdir/bin/bernstein-${slug}" --help
+          }
+
+          check_venv role-pack \
+            "bernstein-role-pack @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@${ROLE_TAG}#subdirectory=plugins/role-pack"
+
+          check_venv org-kit \
+            "bernstein-role-pack @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@${ROLE_TAG}#subdirectory=plugins/role-pack" \
+            "bernstein-org-kit @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@${ORG_TAG}#subdirectory=plugins/org-kit"
+
+          check_venv brand-gate \
+            "bernstein-brand-gate @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@${BRAND_TAG}#subdirectory=plugins/brand-gate"
+
+          check_venv sandcastle \
+            "bernstein-sandcastle @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@${SAND_TAG}#subdirectory=plugins/sandcastle"

@@ -27,13 +27,22 @@ Task IDs vary per run; adapter counts reflect the installed Bernstein version (5
 
 ## Install
 
-From the repository root, with Python 3.12 or newer (installs the latest Bernstein `4.x` release):
+These packages (`bernstein-org-kit` and its dependency `bernstein-role-pack`) are not currently published on PyPI. With Python 3.12 or newer, pass both per-package git URLs in a single `pip install` command so `pip` resolves `bernstein-role-pack>=0.1.0` together with `bernstein-org-kit`:
 
 ```sh
 python3.12 -m venv .venv
 . .venv/bin/activate
-pip install "bernstein>=4.0.1,<5" ./plugins/role-pack ./plugins/org-kit
+pip install "bernstein>=4.0.1,<5"
+pip install \
+  "bernstein-role-pack @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@role-pack-v0.1.0#subdirectory=plugins/role-pack" \
+  "bernstein-org-kit @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@org-kit-v0.2.0#subdirectory=plugins/org-kit"
 bernstein-org-kit demo
+```
+
+Or from a local clone of `bernstein-addons` (repository root):
+
+```sh
+pip install "bernstein>=4.0.1,<5" -e ./plugins/role-pack -e ./plugins/org-kit
 ```
 
 ## Presets & Quickstart
