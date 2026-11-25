@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "nodes", "completion_nodes"],
+  "properties": {
+    "name": {"$ref": "#/$defs/id"},
+    "completion_nodes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "nodes": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 20,
+      "propertyNames": {"$ref": "#/$defs/id"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "depends_on", "timeout_seconds"],
+        "properties": {
+          "role": {"$ref": "#/$defs/id"},
+          "depends_on": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+          "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}
+        }
+      }
+    }
+  },
+  "$defs": {"id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,79}$"}}
+}

@@ -1,0 +1,49 @@
+{
+  "name": "executive-teammate",
+  "completion_nodes": [
+    "attention-digest"
+  ],
+  "nodes": {
+    "inbox-sweep": {
+      "role": "bi-automations",
+      "depends_on": [],
+      "timeout_seconds": 900
+    },
+    "action-mapping": {
+      "role": "bi-automations",
+      "depends_on": [
+        "inbox-sweep"
+      ],
+      "timeout_seconds": 900
+    },
+    "draft-replies": {
+      "role": "writer-prompter",
+      "depends_on": [
+        "action-mapping"
+      ],
+      "timeout_seconds": 1200
+    },
+    "calendar-reconciliation": {
+      "role": "bi-automations",
+      "depends_on": [
+        "action-mapping"
+      ],
+      "timeout_seconds": 900
+    },
+    "attention-digest": {
+      "role": "ceo",
+      "depends_on": [
+        "review-drafts",
+        "calendar-reconciliation"
+      ],
+      "timeout_seconds": 600
+    },
+    "review-drafts": {
+      "role": "communications-controller",
+      "depends_on": [
+        "draft-replies"
+      ],
+      "timeout_seconds": 600
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "document-review",
+  "completion_nodes": ["review-packet"],
+  "nodes": {
+    "collect-input": {
+      "role": "deterministic-extractor",
+      "depends_on": [],
+      "timeout_seconds": 30
+    },
+    "review-packet": {
+      "role": "review-coordinator",
+      "depends_on": ["collect-input"],
+      "timeout_seconds": 30
+    }
+  }
+}

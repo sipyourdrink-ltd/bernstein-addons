@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bernstein-org-kit"
+version = "0.1.0"
+description = "Starter org roles, SOPs, DAG workflow compiler, and Bernstein adapter runner built on bernstein-role-pack"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+authors = [{name = "Alex Chernysh"}]
+dependencies = [
+    "bernstein>=3.24,<5",
+    "bernstein-role-pack>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/sipyourdrink-ltd/bernstein-addons"
+Repository = "https://github.com/sipyourdrink-ltd/bernstein-addons"
+Issues = "https://github.com/sipyourdrink-ltd/bernstein-addons/issues"
+
+[project.entry-points."bernstein.plugins"]
+org_kit = "bernstein_org_kit.plugin:OrgKitPlugin"
+
+[project.scripts]
+bernstein-org-kit = "bernstein_org_kit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+bernstein_org_kit = [
+    "kit/*.json",
+    "kit/org/*",
+    "kit/roles/*",
+    "kit/sops/*",
+    "kit/workflows/*",
+    "kit/templates/*",
+    "kit/tasks/*",
+]

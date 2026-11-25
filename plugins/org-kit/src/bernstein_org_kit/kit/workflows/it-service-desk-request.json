@@ -1,0 +1,48 @@
+{
+  "name": "it-service-desk-request",
+  "completion_nodes": [
+    "close-request"
+  ],
+  "nodes": {
+    "verify-requester": {
+      "role": "hr-director",
+      "depends_on": [],
+      "timeout_seconds": 600
+    },
+    "check-policy": {
+      "role": "legal-compliance",
+      "depends_on": [
+        "verify-requester"
+      ],
+      "timeout_seconds": 900
+    },
+    "prepare-change": {
+      "role": "tech-automations",
+      "depends_on": [
+        "check-policy"
+      ],
+      "timeout_seconds": 1200
+    },
+    "review-change": {
+      "role": "security-review",
+      "depends_on": [
+        "prepare-change"
+      ],
+      "timeout_seconds": 900
+    },
+    "approve-change": {
+      "role": "hr-director",
+      "depends_on": [
+        "review-change"
+      ],
+      "timeout_seconds": 600
+    },
+    "close-request": {
+      "role": "technical-duty",
+      "depends_on": [
+        "approve-change"
+      ],
+      "timeout_seconds": 300
+    }
+  }
+}

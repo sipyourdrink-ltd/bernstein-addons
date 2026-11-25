@@ -1,0 +1,75 @@
+# Example only.
+# Use each provider under its own terms with the operator's own credentials.
+# Provider names below are placeholders. Replace them with your own choices.
+
+version: 1
+
+defaults:
+  max_retries_on_refusal: 0      # a refusal ends the attempt
+  max_retries_on_failure: 1      # technical failure only; reconcile first
+  fallback_provider: none        # no silent switch to another provider
+  independent_review: true       # reviewer is a different role and session
+
+profiles:
+  tier-1-reasoning:
+    purpose: >
+      Planning, legal and financial analysis, architecture decisions,
+      and review of work that carries risk.
+    example_providers:
+      - claude
+      - codex
+      - gemini
+    effort: high
+    required_review:
+      reviewer: independent       # not the producer, not the same session
+      against: artifact_sha256
+    max_retries_on_refusal: 0
+    escalation:
+      on_blocked: manager
+      on_unknown: technical-supervisor
+      on_refused: manager
+      on_gate: owner
+
+  tier-2-coding:
+    purpose: >
+      Writing and changing code, tests and configuration inside a
+      bounded task with clear acceptance checks.
+    example_providers:
+      - codex
+      - claude
+      - gemini
+    effort: medium
+    required_review:
+      reviewer: independent
+      against: artifact_sha256
+    max_retries_on_refusal: 0
+    escalation:
+      on_blocked: manager
+      on_unknown: technical-supervisor
+      on_refused: manager
+      on_gate: owner
+
+  tier-3-extraction:
+    purpose: >
+      Bounded extraction, summarising and formatting of supplied
+      material. Output is checked against the source by a reviewer.
+    example_providers:
+      - gemini
+      - claude
+      - codex
+    effort: low
+    required_review:
+      reviewer: independent
+      against: artifact_sha256
+    max_retries_on_refusal: 0
+    escalation:
+      on_blocked: manager
+      on_unknown: technical-supervisor
+      on_refused: manager
+      on_gate: owner
+
+rules:
+  - A refusal ends the attempt. Do not reword, split or reroute the request.
+  - An UNKNOWN attempt is reconciled under its original attempt id.
+  - A profile never grants authority. Approval gates in ORG.md still apply.
+  - Tasks touching personal data, legal matters or finance use tier-1-reasoning.

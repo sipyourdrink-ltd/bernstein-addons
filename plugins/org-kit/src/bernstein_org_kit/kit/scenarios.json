@@ -1,0 +1,123 @@
+{
+  "scenarios": [
+    {
+      "id": "01-procure-to-pay-3way",
+      "department": "finance",
+      "title": "Vendor invoice needs payment approval",
+      "workflow": "procure-to-pay-3way",
+      "sop": "SOP-FIN-01"
+    },
+    {
+      "id": "02-procure-to-pay-3way",
+      "department": "finance",
+      "title": "Purchase order differs from the delivered goods",
+      "workflow": "procure-to-pay-3way",
+      "sop": "SOP-FIN-01"
+    },
+    {
+      "id": "03-it-service-desk-request",
+      "department": "people",
+      "title": "New employee needs account access",
+      "workflow": "it-service-desk-request",
+      "sop": "SOP-HR-01"
+    },
+    {
+      "id": "04-it-service-desk-request",
+      "department": "people",
+      "title": "Departing employee needs access removed",
+      "workflow": "it-service-desk-request",
+      "sop": "SOP-HR-01"
+    },
+    {
+      "id": "05-legal-adversarial-review",
+      "department": "legal",
+      "title": "Outgoing letter needs adversarial review",
+      "workflow": "legal-adversarial-review",
+      "sop": "SOP-LEGAL-01"
+    },
+    {
+      "id": "06-legal-adversarial-review",
+      "department": "legal",
+      "title": "Contract clause needs counsel review",
+      "workflow": "legal-adversarial-review",
+      "sop": "SOP-LEGAL-01"
+    },
+    {
+      "id": "07-document-review",
+      "department": "legal",
+      "title": "Policy document needs a second reading",
+      "workflow": "document-review",
+      "sop": null
+    },
+    {
+      "id": "08-code-review-merge",
+      "department": "engineering",
+      "title": "Pull request needs independent review before merge",
+      "workflow": "code-review-merge",
+      "sop": null
+    },
+    {
+      "id": "09-release-pipeline",
+      "department": "engineering",
+      "title": "Release candidate needs approval to deploy",
+      "workflow": "release-pipeline",
+      "sop": null
+    },
+    {
+      "id": "10-plan-then-execute",
+      "department": "engineering",
+      "title": "Large feature needs a reviewed plan before work starts",
+      "workflow": "plan-then-execute",
+      "sop": null
+    },
+    {
+      "id": "11-deprecation-rollout",
+      "department": "engineering",
+      "title": "Old interface must be retired with consumers notified",
+      "workflow": "deprecation-rollout",
+      "sop": null
+    },
+    {
+      "id": "12-audit-evidence-pack",
+      "department": "compliance",
+      "title": "Auditor requests an evidence pack for controls",
+      "workflow": "audit-evidence-pack",
+      "sop": null
+    },
+    {
+      "id": "13-support-resolution",
+      "department": "support",
+      "title": "Customer ticket needs diagnosis and remediation",
+      "workflow": "support-resolution",
+      "sop": "SOP-SUPPORT-01"
+    },
+    {
+      "id": "14-support-resolution",
+      "department": "support",
+      "title": "Ticket needs escalation to engineering",
+      "workflow": "support-resolution",
+      "sop": "SOP-SUPPORT-01"
+    },
+    {
+      "id": "15-executive-teammate",
+      "department": "operations",
+      "title": "Daily inbox and calendar need one attention digest",
+      "workflow": "executive-teammate",
+      "sop": "SOP-OPS-01"
+    },
+    {
+      "id": "16-plan-then-execute",
+      "department": "operations",
+      "title": "New recurring job needs a defined workflow contract",
+      "workflow": "plan-then-execute",
+      "sop": "SOP-OPS-02"
+    },
+    {
+      "id": "17-executive-teammate",
+      "department": "operations",
+      "title": "Messages across channels need routing by urgency",
+      "workflow": "executive-teammate",
+      "sop": "SOP-OPS-03"
+    }
+  ]
+}

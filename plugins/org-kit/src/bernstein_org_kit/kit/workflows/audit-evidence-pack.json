@@ -1,0 +1,57 @@
+{
+  "name": "audit-evidence-pack",
+  "completion_nodes": [
+    "review-package"
+  ],
+  "nodes": {
+    "define-controls": {
+      "role": "legal-compliance",
+      "depends_on": [],
+      "timeout_seconds": 900
+    },
+    "collect-logs": {
+      "role": "runtime-reliability-engineer",
+      "depends_on": [
+        "define-controls"
+      ],
+      "timeout_seconds": 1200
+    },
+    "collect-policies": {
+      "role": "legal-assistant",
+      "depends_on": [
+        "define-controls"
+      ],
+      "timeout_seconds": 1200
+    },
+    "collect-test-results": {
+      "role": "tech-automations",
+      "depends_on": [
+        "define-controls"
+      ],
+      "timeout_seconds": 1200
+    },
+    "assemble-pack": {
+      "role": "bi-automations",
+      "depends_on": [
+        "collect-logs",
+        "collect-policies",
+        "collect-test-results"
+      ],
+      "timeout_seconds": 1200
+    },
+    "mock-audit": {
+      "role": "security-review",
+      "depends_on": [
+        "assemble-pack"
+      ],
+      "timeout_seconds": 1200
+    },
+    "review-package": {
+      "role": "legal-director",
+      "depends_on": [
+        "mock-audit"
+      ],
+      "timeout_seconds": 600
+    }
+  }
+}
