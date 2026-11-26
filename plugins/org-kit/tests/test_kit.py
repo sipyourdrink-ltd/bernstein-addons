@@ -198,13 +198,47 @@ class KitCatalogTests(unittest.TestCase):
 
                 for wf_summary in workflow_rows(root):
                     plan = compile_workflow(wf_summary.path, workspace=root)
-                    if wf_summary.name != "document-review":
-                        for stage in plan["stages"]:
-                            self.assertIn(
-                                stage["role"],
-                                active_set,
-                                f"Preset {preset_name} workflow {wf_summary.name} uses excluded role {stage['role']}",
-                            )
+                    for stage in plan["stages"]:
+                        self.assertIn(
+                            stage["role"],
+                            active_set,
+                            f"Preset {preset_name} workflow {wf_summary.name} uses excluded role {stage['role']}",
+                        )
+
+    def test_every_bundled_workflow_stage_role_has_role_file_and_preset_coverage(self) -> None:
+        role_files = {p.stem for p in (KIT_ROOT / "roles").glob("*.md")}
+        by_slug = {r.role: r for r in role_rows()}
+        self.assertEqual(role_files, set(by_slug))
+
+        workflow_paths = list(sorted((KIT_ROOT / "workflows").glob("*.json")))
+        workflow_paths.append(KIT_ROOT / "templates" / "workflow.json")
+        for wf_path in workflow_paths:
+            data = json.loads(wf_path.read_text(encoding="utf-8"))
+            for stage_id, spec in data["nodes"].items():
+                role_slug = spec["role"]
+                self.assertTrue(
+                    (KIT_ROOT / "roles" / f"{role_slug}.md").is_file(),
+                    f"{wf_path.name} stage {stage_id!r} role {role_slug!r} has no role file in kit/roles/",
+                )
+                self.assertIn(role_slug, by_slug)
+            plan = compile_workflow(wf_path)
+            for stage in plan["stages"]:
+                self.assertTrue(stage["role_known"], f"{wf_path.name} stage {stage['id']} role_known=False")
+
+        for preset_name in PRESETS:
+            with self.subTest(preset=preset_name), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                init_workspace(root, preset=preset_name)
+                active_roles = {r.role for r in role_rows(root)}
+                for wf_summary in workflow_rows(root):
+                    plan = compile_workflow(wf_summary.path, workspace=root)
+                    for stage in plan["stages"]:
+                        self.assertIn(
+                            stage["role"],
+                            active_roles,
+                            f"Preset {preset_name!r} workflow {wf_summary.name!r} stage {stage['id']!r} "
+                            f"uses role {stage['role']!r} absent from preset roles",
+                        )
 
     def test_init_full_preset_and_roles_toml_valid(self) -> None:
         with tempfile.TemporaryDirectory() as td:

@@ -87,25 +87,38 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("Add health route", res.prompt)
 
     def test_run_stage_unknown_adapter_fails(self) -> None:
-        with self.assertRaises(OrgKitError):
+        with self.assertRaises(OrgKitError) as ctx:
             run_stage(
                 "document-review",
                 stage_id="collect-input",
                 objective="Extract headings",
                 adapter="not-a-real-adapter",
+                approved_gates=["production-change", "credentials", "deletion"],
                 dry_run=True,
             )
+        self.assertIn("unknown Bernstein adapter", str(ctx.exception))
 
     def test_run_stage_execute_with_bernstein_mock_adapter(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             ws = Path(td)
             init_workspace(ws, preset="minimal")
+            with self.assertRaises(GateBlockedError):
+                run_stage(
+                    "document-review",
+                    stage_id="collect-input",
+                    objective="Extract headings from README",
+                    adapter="mock",
+                    workspace=ws,
+                    dry_run=False,
+                    wait=True,
+                )
             res = run_stage(
                 "document-review",
                 stage_id="collect-input",
                 objective="Extract headings from README",
                 adapter="mock",
                 workspace=ws,
+                approved_gates=["production-change", "credentials", "deletion"],
                 dry_run=False,
                 wait=True,
             )

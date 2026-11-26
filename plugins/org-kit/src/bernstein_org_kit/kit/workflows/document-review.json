@@ -3,12 +3,12 @@
   "completion_nodes": ["review-packet"],
   "nodes": {
     "collect-input": {
-      "role": "deterministic-extractor",
+      "role": "tech-automations",
       "depends_on": [],
       "timeout_seconds": 30
     },
     "review-packet": {
-      "role": "review-coordinator",
+      "role": "technical-supervisor",
       "depends_on": ["collect-input"],
       "timeout_seconds": 30
     }
