@@ -1,0 +1,34 @@
+{
+  "jobs": [
+    {
+      "status": "in_progress",
+      "labels": [
+        "macos-latest"
+      ]
+    },
+    {
+      "status": "in_progress",
+      "labels": [
+        "macos-latest"
+      ]
+    },
+    {
+      "status": "in_progress",
+      "labels": [
+        "macos-latest"
+      ]
+    },
+    {
+      "status": "queued",
+      "labels": [
+        "macos-latest"
+      ]
+    },
+    {
+      "status": "queued",
+      "labels": [
+        "macos-latest"
+      ]
+    }
+  ]
+}

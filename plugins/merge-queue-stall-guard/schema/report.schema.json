@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sipyourdrink-ltd/bernstein-addons/plugins/merge-queue-stall-guard/schema/report.schema.json",
+  "title": "MergeQueueStallReport",
+  "description": "Structured JSON report emitted by merge-queue-stall-guard --format json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verdict",
+    "exit_code",
+    "reason",
+    "repo",
+    "branch",
+    "checked_at",
+    "stall_hours",
+    "entries_count",
+    "build_depth",
+    "tip_sha",
+    "last_merge_at",
+    "last_merge_source",
+    "minutes_since_merge",
+    "head",
+    "queue",
+    "runner_pools",
+    "alert_emitted",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["healthy", "blocked-red", "stall", "unknown"]
+    },
+    "exit_code": {
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checked_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "stall_hours": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "entries_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "build_depth": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "tip_sha": {
+      "type": ["string", "null"]
+    },
+    "last_merge_at": {
+      "type": ["string", "null"]
+    },
+    "last_merge_source": {
+      "type": ["string", "null"],
+      "enum": ["activity", "commit-date", null]
+    },
+    "minutes_since_merge": {
+      "type": ["integer", "null"]
+    },
+    "head": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "pr_number",
+        "title",
+        "state",
+        "head_sha",
+        "enqueued_at",
+        "enqueued_minutes_ago",
+        "red_checks_count",
+        "pending_checks_count",
+        "pending_checks",
+        "checks_error"
+      ],
+      "properties": {
+        "pr_number": { "type": ["integer", "null"] },
+        "title": { "type": ["string", "null"] },
+        "state": { "type": "string" },
+        "head_sha": { "type": ["string", "null"] },
+        "enqueued_at": { "type": ["string", "null"] },
+        "enqueued_minutes_ago": { "type": ["integer", "null"] },
+        "red_checks_count": { "type": ["integer", "null"], "minimum": 0 },
+        "pending_checks_count": { "type": ["integer", "null"], "minimum": 0 },
+        "pending_checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "wait_kind", "running_minutes"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "wait_kind": { "type": "string", "enum": ["waiting_for_runner", "executing"] },
+              "running_minutes": { "type": ["integer", "null"] }
+            }
+          }
+        },
+        "checks_error": { "type": ["string", "null"] }
+      }
+    },
+    "queue": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["position", "pr_number", "state"],
+        "properties": {
+          "position": { "type": "integer", "minimum": 0 },
+          "pr_number": { "type": ["integer", "null"] },
+          "state": { "type": "string" }
+        }
+      }
+    },
+    "runner_pools": {
+      "type": ["object", "null"],
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "alert_emitted": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

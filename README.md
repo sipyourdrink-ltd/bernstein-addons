@@ -17,6 +17,7 @@ These packages are not currently published on PyPI.
 | [org-kit](plugins/org-kit/README.md) | `bernstein-org-kit` | `org-kit-v0.2.0` | Starter org kit across 6 presets (`minimal`, `engineering`, `secops`, `product`, `compliance`, `full`: up to 36 roles, 16 SOPs, 20 workflows, 32 scenarios, 9 authoring templates), auto-generated `roles.toml`, deterministic SHA-256 workflow DAG compiler, fail-closed stage runner over Bernstein's native CLI adapters, and `AGENTS.md` governance hook | `>=3.24,<5` + `bernstein-role-pack>=0.1.0`; plugin entry point and CLI |
 | [Sandcastle](plugins/sandcastle/README.md) | `bernstein-sandcastle` | `sandcastle-v0.1.0` | Records run evidence and leaves merges to Bernstein's gates | No Python Bernstein dependency declared; task-attempt CLI integration |
 | [brand-gate](plugins/brand-gate/README.md) | `bernstein-brand-gate` | `brand-gate-v0.1.0` | Opt-in configured-domain check using `brand-impersonation-detector`; requires explicit tool mapping and host enforcement; records checked verdicts if the journal is writable | `>=3.24.1,<5`; pre-tool hook or explicit CLI |
+| [merge-queue-stall-guard](plugins/merge-queue-stall-guard/README.md) | `bernstein-merge-queue-stall-guard` | `merge-queue-stall-guard-v0.1.0` | Read-only watcher for GitHub's native merge queue: detects stalls, names pending checks, and censuses hosted-runner pools by label | No Python Bernstein dependency declared; standalone CLI (`merge-queue-stall-guard`) using `gh` |
 
 Brand-gate invokes the classifier only for a valid destination in a supported environment after enablement and tool selection. It allows only a validated `legit` verdict with `signals.domain_is_legit = true` and a successful journal append. Unrelated domains can block; an allow result does not establish website safety. See [brand-gate installation and configuration](plugins/brand-gate/README.md#install) for source installation and host wiring.
 
@@ -38,11 +39,14 @@ pip install "bernstein-brand-gate @ git+https://github.com/sipyourdrink-ltd/bern
 
 # bernstein-sandcastle
 pip install "bernstein-sandcastle @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@sandcastle-v0.1.0#subdirectory=plugins/sandcastle"
+
+# bernstein-merge-queue-stall-guard
+pip install "bernstein-merge-queue-stall-guard @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@merge-queue-stall-guard-v0.1.0#subdirectory=plugins/merge-queue-stall-guard"
 ```
 
 ## Per-package tag scheme
 
-All four plugins live in this repository and version independently using `<plugin-dir>-v<version>` git tags matching `[project].version` in `plugins/<plugin-dir>/pyproject.toml` (`role-pack-v0.1.0`, `org-kit-v0.2.0`, `brand-gate-v0.1.0`, `sandcastle-v0.1.0`). No umbrella `bernstein-addons` Python package exists. Tags are cut on `main` after review and green CI, and are never moved once pushed; see [docs/tag-scheme.md](docs/tag-scheme.md).
+All five plugins live in this repository and version independently using `<plugin-dir>-v<version>` git tags matching `[project].version` in `plugins/<plugin-dir>/pyproject.toml` (`role-pack-v0.1.0`, `org-kit-v0.2.0`, `brand-gate-v0.1.0`, `sandcastle-v0.1.0`, `merge-queue-stall-guard-v0.1.0`). No umbrella `bernstein-addons` Python package exists. Tags are cut on `main` after review and green CI, and are never moved once pushed; see [docs/tag-scheme.md](docs/tag-scheme.md).
 
 ## Quickstart: role-pack and org-kit demos
 

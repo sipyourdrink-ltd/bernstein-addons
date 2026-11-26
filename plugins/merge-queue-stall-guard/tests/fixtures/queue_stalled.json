@@ -1,0 +1,28 @@
+{
+  "data": {
+    "repository": {
+      "mergeQueue": {
+        "configuration": {
+          "maximumEntriesToBuild": 2
+        },
+        "entries": {
+          "totalCount": 1,
+          "nodes": [
+            {
+              "position": 1,
+              "state": "AWAITING_CHECKS",
+              "enqueuedAt": "2026-01-14T12:00:00Z",
+              "headCommit": {
+                "oid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "pullRequest": {
+                "number": 17,
+                "title": "Example pull request"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
