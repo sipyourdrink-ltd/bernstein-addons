@@ -210,6 +210,12 @@ class DemoAndCliTests(unittest.TestCase):
                         "mock",
                         "--workspace",
                         str(ws),
+                        "--approve-gate",
+                        "production-change",
+                        "--approve-gate",
+                        "credentials",
+                        "--approve-gate",
+                        "deletion",
                         "--execute",
                         "--json",
                     ]
@@ -218,6 +224,31 @@ class DemoAndCliTests(unittest.TestCase):
             exec_payload = json.loads(buf.getvalue())
             self.assertFalse(exec_payload["dry_run"])
             self.assertEqual(exec_payload["returncode"], 0)
+
+            # workflows compile fails closed on unknown stage role
+            bad_wf = Path(td) / "unknown-role.json"
+            bad_wf.write_text(
+                json.dumps(
+                    {
+                        "name": "unknown-role",
+                        "completion_nodes": ["step-one"],
+                        "nodes": {
+                            "step-one": {
+                                "role": "missing-role-file",
+                                "depends_on": [],
+                                "timeout_seconds": 30,
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                rc = cli.main(["workflows", "compile", str(bad_wf)])
+            self.assertEqual(rc, 1)
+            self.assertIn("CompileError", err.getvalue())
+            self.assertIn("missing-role-file", err.getvalue())
 
 
 if __name__ == "__main__":

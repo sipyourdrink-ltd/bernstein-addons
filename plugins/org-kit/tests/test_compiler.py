@@ -66,13 +66,44 @@ class CompilerTests(unittest.TestCase):
             [],
         )
 
-    def test_document_review_handles_abstract_roles_cleanly(self) -> None:
+    def test_document_review_uses_known_roles_and_metadata(self) -> None:
         plan = compile_workflow("document-review")
         self.assertEqual(plan["execution_order"], ["collect-input", "review-packet"])
+        by_id = {st["id"]: st for st in plan["stages"]}
+        self.assertEqual(by_id["collect-input"]["role"], "tech-automations")
+        self.assertEqual(by_id["review-packet"]["role"], "technical-supervisor")
         for st in plan["stages"]:
-            self.assertFalse(st["role_known"])
-            self.assertEqual(st["approval_gates"], [])
-            self.assertIsNone(st["reports_to"])
+            self.assertTrue(st["role_known"])
+            self.assertEqual(st["reports_to"], "cto-tech")
+            self.assertTrue(st["approval_gates"])
+
+    def test_compile_workflow_rejects_stage_role_without_role_file(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        bad_wf = {
+            "name": "dangling-role-workflow",
+            "completion_nodes": ["finish"],
+            "nodes": {
+                "finish": {
+                    "role": "nonexistent-stage-role",
+                    "depends_on": [],
+                    "timeout_seconds": 30,
+                },
+            },
+        }
+        with self.assertRaises(CompileError) as ctx:
+            compile_workflow_data(bad_wf, roles_by_name={}, require_known_roles=True)
+        self.assertIn("nonexistent-stage-role", str(ctx.exception))
+        self.assertIn("no role file found", str(ctx.exception))
+
+        with tempfile.TemporaryDirectory() as td:
+            wf_path = Path(td) / "dangling-role-workflow.json"
+            wf_path.write_text(json.dumps(bad_wf), encoding="utf-8")
+            with self.assertRaises(CompileError) as ctx2:
+                compile_workflow(wf_path)
+            self.assertIn("nonexistent-stage-role", str(ctx2.exception))
+            self.assertIn("finish", str(ctx2.exception))
 
     def test_rejects_cycles_and_invalid_specs(self) -> None:
         cycle = {

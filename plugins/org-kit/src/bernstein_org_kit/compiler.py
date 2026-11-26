@@ -140,6 +140,7 @@ def compile_workflow_data(
     data: dict[str, Any],
     *,
     roles_by_name: dict[str, RoleDoc] | None = None,
+    require_known_roles: bool = False,
 ) -> dict[str, Any]:
     """Compile a validated workflow dict into a deterministic plan with SHA-256 hashes."""
     name, nodes, completion_nodes = _validate_workflow(data)
@@ -169,6 +170,11 @@ def compile_workflow_data(
     for idx, nid in enumerate(execution_order, start=1):
         spec = nodes[nid]
         role_doc = roles_map.get(spec["role"])
+        if require_known_roles and role_doc is None:
+            raise CompileError(
+                f"workflow {name!r} stage {nid!r} references unknown role {spec['role']!r} "
+                "(no role file found)"
+            )
         stage_core = {
             "id": nid,
             "index": idx,
@@ -212,7 +218,11 @@ def compile_workflow(
     if workspace is not None:
         for r in role_rows(workspace):
             roles_map[r.role] = r
-    return compile_workflow_data(wf_doc.data, roles_by_name=roles_map)
+    return compile_workflow_data(
+        wf_doc.data,
+        roles_by_name=roles_map,
+        require_known_roles=True,
+    )
 
 
 def ready_stages(plan: dict[str, Any], accepted: set[str] | frozenset[str]) -> list[str]:
