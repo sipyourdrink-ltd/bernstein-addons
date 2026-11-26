@@ -109,11 +109,26 @@ def _validate_against_schema(instance: Any, schema: dict[str, Any], path: str = 
         types = [expected_type] if isinstance(expected_type, str) else list(expected_type)
         ok = False
         for t in types:
-            if t == "null" and instance is None or t == "boolean" and isinstance(instance, bool) or t == "integer" and isinstance(instance, int) and not isinstance(instance, bool) or (
-                t == "number"
-                and isinstance(instance, (int, float))
+            if (
+                t == "null"
+                and instance is None
+                or t == "boolean"
+                and isinstance(instance, bool)
+                or t == "integer"
+                and isinstance(instance, int)
                 and not isinstance(instance, bool)
-            ) or t == "string" and isinstance(instance, str) or t == "object" and isinstance(instance, dict) or t == "array" and isinstance(instance, list):
+                or (
+                    t == "number"
+                    and isinstance(instance, (int, float))
+                    and not isinstance(instance, bool)
+                )
+                or t == "string"
+                and isinstance(instance, str)
+                or t == "object"
+                and isinstance(instance, dict)
+                or t == "array"
+                and isinstance(instance, list)
+            ):
                 ok = True
         assert ok, f"{path}: expected type {types}, got {type(instance).__name__} ({instance!r})"
 
@@ -201,8 +216,10 @@ def test_stall_emits_and_throttles_alert_and_matches_schema(tmp_path: Path) -> N
     ]
     assert len(alerts) == 1
     assert alerts[0]["repo"] == REPO
-    assert (state_dir / "MERGE-QUEUE-STALL").read_text(encoding="utf-8").startswith(
-        "MERGE-QUEUE-STALL"
+    assert (
+        (state_dir / "MERGE-QUEUE-STALL")
+        .read_text(encoding="utf-8")
+        .startswith("MERGE-QUEUE-STALL")
     )
     assert (state_dir / "ATTENTION").exists()
 
@@ -353,9 +370,7 @@ def test_unavailable_activity_falls_back_to_tip_date(tmp_path: Path) -> None:
     assert "src=commit-date" in report.summary
 
 
-def test_cli_json_format_and_exit_code(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_cli_json_format_and_exit_code(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     gh = _make_fake_gh(tmp_path, _base_replies())
     rc = main(
