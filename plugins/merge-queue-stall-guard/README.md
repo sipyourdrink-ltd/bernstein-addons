@@ -1,11 +1,11 @@
 # bernstein-merge-queue-stall-guard
 
-A read-only watcher for GitHub's native merge queue. It reports a stall when entries are present, nothing has merged for N hours and the head is not red; then it names the head entry, each pending check, whether the wait is for a runner or for execution, and the hosted-runner pool census by label. It never dequeues, cancels, relabels or edits queue settings.
+A read-only watcher for GitHub's native merge queue. It reports a stall when entries are present, nothing has merged for N hours and the head is not red; then it names the head entry, each pending check, whether the wait is for a runner or for execution, and the active (queued and in-progress) workflow job counts by runner label. It never dequeues, cancels, relabels or edits queue settings.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/diagram-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/diagram-light.png">
-  <img alt="Diagram of a five-card merge queue on a rail with the head card marked by an hourglass and connected to three labels: waiting for a runner, executing, and pool: 5 of 5 busy." src="assets/diagram-light.png">
+  <img alt="Diagram of a five-card merge queue on a rail with the head card marked by an hourglass and connected to three diagnostic callouts: waiting for a runner, executing, and active jobs by runner label." src="assets/diagram-light.png">
 </picture>
 
 ## Install
@@ -16,7 +16,7 @@ A read-only watcher for GitHub's native merge queue. It reports a stall when ent
 pip install "bernstein-merge-queue-stall-guard @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@merge-queue-stall-guard-v0.1.0#subdirectory=plugins/merge-queue-stall-guard"
 ```
 
-Requires the official GitHub CLI (`gh`) authenticated with read access to repository contents, pull requests, and Actions runs/jobs.
+Requires the official GitHub CLI (`gh`) authenticated with read access to repository contents, pull requests, check runs, and Actions runs/jobs.
 
 ## Usage
 
@@ -38,7 +38,7 @@ merge-queue-stall-guard --repo example-org/example-repo --format json --no-state
 | `--branch` | `main` | Protected branch with merge queue enabled |
 | `--stall-hours` | `2` | Hours without a merge before reporting a stall |
 | `--alert-repeat-hours` | `4` | Minimum hours between repeated rows in `alerts.jsonl` |
-| `--state-dir` | `$XDG_STATE_HOME/merge-queue-stall-guard` | Directory for local history, stall marker, and throttled alerts |
+| `--state-dir` | `$XDG_STATE_HOME/merge-queue-stall-guard/<repo-branch>` | Directory for local history, stall marker, and throttled alerts (namespaced per repo and branch by default) |
 | `--no-state` | off | Skip writing local state files (useful in CI) |
 | `--format` | `text` | Output format: `text` or `json` |
 | `--gh-bin` | `gh` | Path to the `gh` CLI binary |
@@ -53,7 +53,7 @@ merge-queue-stall-guard --repo example-org/example-repo --format json --no-state
 
 ## GitHub Actions example
 
-Copy [examples/stall-guard.yml](examples/stall-guard.yml) into `.github/workflows/` to run on a schedule and write the JSON report to the job summary using read-only `GITHUB_TOKEN` permissions (`contents: read`, `pull-requests: read`, `actions: read`).
+Copy [examples/stall-guard.yml](examples/stall-guard.yml) into `.github/workflows/` to run on a schedule and write the JSON report to the job summary using read-only `GITHUB_TOKEN` permissions (`contents: read`, `pull-requests: read`, `checks: read`, `actions: read`).
 
 ## Development and tests
 

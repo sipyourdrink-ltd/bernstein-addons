@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import subprocess
@@ -14,7 +15,7 @@ from typing import Any
 import pytest
 
 from bernstein_merge_queue_stall_guard.cli import main
-from bernstein_merge_queue_stall_guard.gh import GhClient
+from bernstein_merge_queue_stall_guard.gh import GhClient, GhQueryError
 from bernstein_merge_queue_stall_guard.guard import evaluate_queue
 
 REPO = "example-org/example-repo"
@@ -28,10 +29,14 @@ NOW_DT = datetime(2026, 1, 14, 15, 0, 0, tzinfo=UTC)
 TIP_ROUTE = f"repos/{REPO}/commits/{BRANCH}"
 ACTIVITY_ROUTE = f"repos/{REPO}/activity?ref=refs/heads/{BRANCH}&per_page=10"
 CHECKS_ROUTE = f"repos/{REPO}/commits/{HEAD_SHA}/check-runs?per_page=100"
+CHECKS_PAGE2_ROUTE = f"repos/{REPO}/commits/{HEAD_SHA}/check-runs?per_page=100&page=2"
 RUNS_ROUTE = f"repos/{REPO}/actions/runs?status=in_progress&per_page=50"
 JOBS_ROUTE = f"repos/{REPO}/actions/runs/101/jobs?per_page=100"
+JOBS_PAGE2_ROUTE = f"repos/{REPO}/actions/runs/101/jobs?per_page=100&page=2"
 
-SCHEMA_PATH = Path(__file__).parents[1] / "schema" / "report.schema.json"
+PLUGIN_ROOT = Path(__file__).parents[1]
+SCHEMA_PATH = PLUGIN_ROOT / "schema" / "report.schema.json"
+EXAMPLE_WORKFLOW_PATH = PLUGIN_ROOT / "examples" / "stall-guard.yml"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 FAKE_GH_SCRIPT = """#!/usr/bin/env python3
@@ -46,13 +51,12 @@ args = sys.argv[1:]
 route = args[1] if len(args) >= 2 else None
 permitted = args[:1] == ["api"] and route in replies
 if route == "graphql":
-    prefix = 'query=\\n{ repository(owner:"example-org", name:"example-repo")'
     permitted = (
         permitted
         and len(args) == 4
         and args[2] == "-f"
-        and args[3].startswith(prefix)
-        and 'mergeQueue(branch:"main")' in args[3]
+        and args[3].startswith("query=\\n{ repository(")
+        and "mergeQueue(" in args[3]
         and re.search(r"\\bmutation\\b", args[3]) is None
     )
 else:
@@ -74,14 +78,20 @@ def _load_fixture(name: str) -> Any:
     return json.loads((FIXTURES_DIR / name).read_text(encoding="utf-8"))
 
 
-def _base_replies() -> dict[str, Any]:
+def _base_replies(repo: str = REPO, branch: str = BRANCH) -> dict[str, Any]:
     return {
         "graphql": _load_fixture("queue_stalled.json"),
-        TIP_ROUTE: _load_fixture("tip_old.json"),
-        ACTIVITY_ROUTE: _load_fixture("activity_old.json"),
-        CHECKS_ROUTE: _load_fixture("checks_waiting.json"),
-        RUNS_ROUTE: _load_fixture("runs_in_progress.json"),
-        JOBS_ROUTE: _load_fixture("jobs_101.json"),
+        f"repos/{repo}/commits/{branch}": _load_fixture("tip_old.json"),
+        f"repos/{repo}/activity?ref=refs/heads/{branch}&per_page=10": _load_fixture(
+            "activity_old.json"
+        ),
+        f"repos/{repo}/commits/{HEAD_SHA}/check-runs?per_page=100": _load_fixture(
+            "checks_waiting.json"
+        ),
+        f"repos/{repo}/actions/runs?status=in_progress&per_page=50": _load_fixture(
+            "runs_in_progress.json"
+        ),
+        f"repos/{repo}/actions/runs/101/jobs?per_page=100": _load_fixture("jobs_101.json"),
     }
 
 
@@ -192,6 +202,8 @@ def test_stall_emits_and_throttles_alert_and_matches_schema(tmp_path: Path) -> N
     assert report1.exit_code == 1
     assert report1.alert_emitted is True
     assert report1.last_merge_source == "activity"
+    assert report1.queue_truncated is False
+    assert report1.active_jobs_truncated is False
     assert report1.head is not None
     assert report1.head.pr_number == 17
     assert report1.head.pending_checks[0].wait_kind == "waiting_for_runner"
@@ -293,6 +305,39 @@ def test_head_red_returns_blocked_red_and_exits_zero(tmp_path: Path) -> None:
     _validate_against_schema(report.to_dict(), schema)
 
 
+@pytest.mark.parametrize(
+    "conclusion",
+    ["failure", "timed_out", "cancelled", "startup_failure", "action_required", "stale"],
+)
+def test_all_red_conclusions_return_blocked_red(tmp_path: Path, conclusion: str) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    replies = _base_replies()
+    replies[CHECKS_ROUTE] = {
+        "total_count": 1,
+        "check_runs": [
+            {
+                "name": f"check-{conclusion}",
+                "status": "completed",
+                "conclusion": conclusion,
+                "started_at": "2026-01-14T14:00:00Z",
+            }
+        ],
+    }
+    gh = _make_fake_gh(tmp_path, replies)
+    report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=GhClient(gh_bin=str(gh)),
+        now=NOW_DT,
+        write_state=False,
+    )
+    assert report.verdict == "blocked-red"
+    assert report.exit_code == 0
+    assert report.head is not None
+    assert report.head.red_checks_count == 1
+    _validate_against_schema(report.to_dict(), schema)
+
+
 def test_gh_absent_returns_unknown_exit_2(tmp_path: Path) -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     state_dir = tmp_path / "state"
@@ -329,7 +374,103 @@ def test_unavailable_queue_query_is_unknown(tmp_path: Path) -> None:
     assert report.exit_code == 2
 
 
-def test_unavailable_head_checks_remain_unknown_in_stall(tmp_path: Path) -> None:
+def test_null_repository_in_graphql_returns_unknown(tmp_path: Path) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    replies = _base_replies()
+    replies["graphql"] = {"data": {"repository": None}}
+    gh = _make_fake_gh(tmp_path, replies)
+
+    report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=GhClient(gh_bin=str(gh)),
+        now=NOW_DT,
+        write_state=False,
+    )
+    assert report.verdict == "unknown"
+    assert report.exit_code == 2
+    assert "mergeQueue" in report.reason
+    _validate_against_schema(report.to_dict(), schema)
+
+
+def test_positive_count_with_empty_nodes_returns_unknown_no_alert(tmp_path: Path) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    replies = _base_replies()
+    replies["graphql"] = {
+        "data": {
+            "repository": {
+                "mergeQueue": {
+                    "configuration": {"maximumEntriesToBuild": 5},
+                    "entries": {"totalCount": 1, "nodes": []},
+                }
+            }
+        }
+    }
+    gh = _make_fake_gh(tmp_path, replies)
+    state_dir = tmp_path / "state"
+
+    report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=GhClient(gh_bin=str(gh)),
+        now=NOW_DT,
+        state_dir=state_dir,
+    )
+    assert report.verdict == "unknown"
+    assert report.exit_code == 2
+    assert report.alert_emitted is False
+    assert report.queue_truncated is True
+    assert not (state_dir / "alerts.jsonl").exists()
+    assert report.head is not None
+    assert report.head.red_checks_count is None
+    _validate_against_schema(report.to_dict(), schema)
+
+
+def test_missing_head_sha_returns_unknown_no_alert(tmp_path: Path) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    replies = _base_replies()
+    replies["graphql"] = {
+        "data": {
+            "repository": {
+                "mergeQueue": {
+                    "configuration": {"maximumEntriesToBuild": 5},
+                    "entries": {
+                        "totalCount": 1,
+                        "nodes": [
+                            {
+                                "position": 1,
+                                "state": "AWAITING_CHECKS",
+                                "enqueuedAt": "2026-01-14T13:00:00Z",
+                                "headCommit": None,
+                                "pullRequest": {"number": 17, "title": "PR 17"},
+                            }
+                        ],
+                    },
+                }
+            }
+        }
+    }
+    gh = _make_fake_gh(tmp_path, replies)
+    state_dir = tmp_path / "state"
+
+    report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=GhClient(gh_bin=str(gh)),
+        now=NOW_DT,
+        state_dir=state_dir,
+    )
+    assert report.verdict == "unknown"
+    assert report.exit_code == 2
+    assert report.alert_emitted is False
+    assert not (state_dir / "alerts.jsonl").exists()
+    assert report.head is not None
+    assert report.head.head_sha is None
+    assert report.head.checks_error == "head entry missing headCommit.oid"
+    _validate_against_schema(report.to_dict(), schema)
+
+
+def test_unavailable_head_checks_return_unknown_no_alert(tmp_path: Path) -> None:
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     replies = _base_replies()
     replies[CHECKS_ROUTE] = None
@@ -343,8 +484,10 @@ def test_unavailable_head_checks_remain_unknown_in_stall(tmp_path: Path) -> None
         now=NOW_DT,
         state_dir=state_dir,
     )
-    assert report.verdict == "stall"
-    assert report.exit_code == 1
+    assert report.verdict == "unknown"
+    assert report.exit_code == 2
+    assert report.alert_emitted is False
+    assert not (state_dir / "alerts.jsonl").exists()
     assert report.head is not None
     assert report.head.red_checks_count is None
     assert report.head.checks_error == "check-runs query failed"
@@ -352,7 +495,8 @@ def test_unavailable_head_checks_remain_unknown_in_stall(tmp_path: Path) -> None
     _validate_against_schema(report.to_dict(), schema)
 
 
-def test_unavailable_activity_falls_back_to_tip_date(tmp_path: Path) -> None:
+def test_unavailable_activity_does_not_assert_stall(tmp_path: Path) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     replies = _base_replies()
     replies[ACTIVITY_ROUTE] = None
     gh = _make_fake_gh(tmp_path, replies)
@@ -365,9 +509,225 @@ def test_unavailable_activity_falls_back_to_tip_date(tmp_path: Path) -> None:
         now=NOW_DT,
         state_dir=state_dir,
     )
-    assert report.verdict == "stall"
+    assert report.verdict == "unknown"
+    assert report.exit_code == 2
     assert report.last_merge_source == "commit-date"
+    assert report.alert_emitted is False
+    assert not (state_dir / "alerts.jsonl").exists()
     assert "src=commit-date" in report.summary
+    _validate_against_schema(report.to_dict(), schema)
+
+
+def test_unavailable_activity_with_recent_commit_date_is_healthy(tmp_path: Path) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    replies = _base_replies()
+    replies[ACTIVITY_ROUTE] = None
+    replies[TIP_ROUTE] = {
+        "sha": TIP_SHA,
+        "commit": {"committer": {"date": "2026-01-14T14:50:00Z"}},
+    }
+    gh = _make_fake_gh(tmp_path, replies)
+
+    report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=GhClient(gh_bin=str(gh)),
+        now=NOW_DT,
+        write_state=False,
+    )
+    assert report.verdict == "healthy"
+    assert report.exit_code == 0
+    assert report.last_merge_source == "commit-date"
+    _validate_against_schema(report.to_dict(), schema)
+
+
+def test_paginated_check_runs_finds_red_on_page_2(tmp_path: Path) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    replies = _base_replies()
+    page1_runs = [
+        {
+            "name": f"pass-{i}",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-01-14T14:00:00Z",
+        }
+        for i in range(100)
+    ]
+    replies[CHECKS_ROUTE] = {"total_count": 101, "check_runs": page1_runs}
+    replies[CHECKS_PAGE2_ROUTE] = {
+        "total_count": 101,
+        "check_runs": [
+            {
+                "name": "late-red-check",
+                "status": "completed",
+                "conclusion": "failure",
+                "started_at": "2026-01-14T14:10:00Z",
+            }
+        ],
+    }
+    gh = _make_fake_gh(tmp_path, replies)
+
+    report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=GhClient(gh_bin=str(gh)),
+        now=NOW_DT,
+        write_state=False,
+    )
+    routes = _assert_all_requests_permitted(tmp_path)
+    assert CHECKS_PAGE2_ROUTE in routes
+    assert report.verdict == "blocked-red"
+    assert report.exit_code == 0
+    assert report.head is not None
+    assert report.head.red_checks_count == 1
+    _validate_against_schema(report.to_dict(), schema)
+
+
+def test_active_jobs_pagination_and_truncation_flag(tmp_path: Path) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    replies = _base_replies()
+    replies[RUNS_ROUTE] = {"total_count": 40, "workflow_runs": [{"id": 101}]}
+    page1_jobs = [
+        {"status": "in_progress", "labels": ["ubuntu-latest"]} for _ in range(100)
+    ]
+    replies[JOBS_ROUTE] = {"total_count": 102, "jobs": page1_jobs}
+    replies[JOBS_PAGE2_ROUTE] = {
+        "total_count": 102,
+        "jobs": [
+            {"status": "queued", "labels": ["macos-latest"]},
+            {"status": "queued", "labels": ["macos-latest"]},
+        ],
+    }
+    gh = _make_fake_gh(tmp_path, replies)
+
+    report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=GhClient(gh_bin=str(gh)),
+        now=NOW_DT,
+        write_state=False,
+    )
+    assert report.verdict == "stall"
+    assert report.active_jobs_truncated is True
+    assert report.runner_pools == {"ubuntu-latest": 100, "macos-latest": 2}
+    _validate_against_schema(report.to_dict(), schema)
+
+
+def test_default_state_dir_is_isolated_per_repo_and_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg"))
+    repo_a = "example-org/repo-a"
+    repo_b = "example-org/repo-b"
+
+    dir_a = tmp_path / "gh-a"
+    dir_a.mkdir()
+    gh_a = _make_fake_gh(dir_a, _base_replies(repo=repo_a, branch="main"))
+
+    dir_b = tmp_path / "gh-b"
+    dir_b.mkdir()
+    gh_b = _make_fake_gh(dir_b, _base_replies(repo=repo_b, branch="main"))
+
+    rep_a = evaluate_queue(
+        repo=repo_a, branch="main", client=GhClient(gh_bin=str(gh_a)), now=NOW_DT
+    )
+    rep_b = evaluate_queue(
+        repo=repo_b, branch="main", client=GhClient(gh_bin=str(gh_b)), now=NOW_DT
+    )
+    assert rep_a.verdict == "stall" and rep_a.alert_emitted is True
+    assert rep_b.verdict == "stall" and rep_b.alert_emitted is True
+
+    # A healthy run for repo_b must not clear repo_a's marker/episode.
+    replies_b_empty = _base_replies(repo=repo_b, branch="main")
+    replies_b_empty["graphql"] = _load_fixture("queue_empty.json")
+    gh_b_empty = _make_fake_gh(dir_b, replies_b_empty)
+    rep_b2 = evaluate_queue(
+        repo=repo_b, branch="main", client=GhClient(gh_bin=str(gh_b_empty)), now=NOW_DT
+    )
+    assert rep_b2.verdict == "healthy"
+
+    # Second stall check for repo_a still throttles (its own episode survived).
+    rep_a2 = evaluate_queue(
+        repo=repo_a, branch="main", client=GhClient(gh_bin=str(gh_a)), now=NOW_DT
+    )
+    assert rep_a2.verdict == "stall" and rep_a2.alert_emitted is False
+
+
+def test_sub_minute_stall_hours_uses_timedelta_and_rejects_non_finite(tmp_path: Path) -> None:
+    replies = _base_replies()
+    # Last merge was 10 seconds ago; stall_hours=0.01 is 36 seconds -> must be healthy.
+    replies[ACTIVITY_ROUTE] = [
+        {"activity_type": "merge_queue_merge", "timestamp": "2026-01-14T14:59:50Z"}
+    ]
+    gh = _make_fake_gh(tmp_path, replies)
+    report_recent = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        stall_hours=0.01,
+        client=GhClient(gh_bin=str(gh)),
+        now=NOW_DT,
+        write_state=False,
+    )
+    assert report_recent.verdict == "healthy"
+    assert report_recent.exit_code == 0
+
+    # Last merge was 40 seconds ago; stall_hours=0.01 is 36 seconds -> must be stall.
+    replies[ACTIVITY_ROUTE] = [
+        {"activity_type": "merge_queue_merge", "timestamp": "2026-01-14T14:59:20Z"}
+    ]
+    gh2 = _make_fake_gh(tmp_path, replies)
+    report_stalled = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        stall_hours=0.01,
+        client=GhClient(gh_bin=str(gh2)),
+        now=NOW_DT,
+        write_state=False,
+    )
+    assert report_stalled.verdict == "stall"
+    assert report_stalled.exit_code == 1
+
+    for bad in (math.inf, -math.inf, math.nan, 0.0, -1.0):
+        with pytest.raises(ValueError):
+            evaluate_queue(
+                repo=REPO,
+                branch=BRANCH,
+                stall_hours=bad,
+                client=GhClient(gh_bin=str(gh)),
+                now=NOW_DT,
+                write_state=False,
+            )
+
+
+def test_gh_client_bounds_stdout_and_stderr(tmp_path: Path) -> None:
+    big_out = tmp_path / "big-out-gh"
+    big_out.write_text(
+        "#!/usr/bin/env python3\nimport sys\nsys.stdout.write('x' * 50000)\n",
+        encoding="utf-8",
+    )
+    big_out.chmod(0o700)
+    client_out = GhClient(gh_bin=str(big_out), max_stdout_bytes=1024)
+    with pytest.raises(GhQueryError, match="exceeded 1024 byte limit"):
+        client_out.get("repos/a/b")
+
+    big_err = tmp_path / "big-err-gh"
+    big_err.write_text(
+        "#!/usr/bin/env python3\nimport sys\nsys.stderr.write('E' * 5000)\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    big_err.chmod(0o700)
+    client_err = GhClient(gh_bin=str(big_err), max_stderr_bytes=1024)
+    with pytest.raises(GhQueryError) as exc_info:
+        client_err.get("repos/a/b")
+    assert "[truncated]" in str(exc_info.value)
+    assert len(str(exc_info.value)) < 700
+
+
+def test_example_workflow_grants_required_read_only_permissions() -> None:
+    text = EXAMPLE_WORKFLOW_PATH.read_text(encoding="utf-8")
+    for perm in ("contents: read", "pull-requests: read", "checks: read", "actions: read"):
+        assert perm in text, f"missing permission {perm!r} in {EXAMPLE_WORKFLOW_PATH}"
+    assert ": write" not in text
 
 
 def test_cli_json_format_and_exit_code(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -393,12 +753,82 @@ def test_cli_json_format_and_exit_code(tmp_path: Path, capsys: pytest.CaptureFix
     _validate_against_schema(payload, schema)
 
 
+@pytest.mark.parametrize(
+    ("scenario", "stderr_msg"),
+    [
+        ("unauthenticated", "gh: To get started with GitHub CLI, please run: gh auth login"),
+        ("rate_limited", "gh: API rate limit exceeded (HTTP 403)"),
+    ],
+)
+def test_cli_subprocess_exits_2_on_gh_auth_or_rate_limit(
+    tmp_path: Path, scenario: str, stderr_msg: str
+) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    bad_gh = tmp_path / f"gh-{scenario}"
+    bad_gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        f"sys.stderr.write({stderr_msg!r} + '\\n')\n"
+        "sys.exit(1)\n",
+        encoding="utf-8",
+    )
+    bad_gh.chmod(0o700)
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "bernstein_merge_queue_stall_guard.cli",
+            "--repo",
+            REPO,
+            "--gh-bin",
+            str(bad_gh),
+            "--no-state",
+            "--format",
+            "json",
+        ],
+        env={**os.environ, "PYTHONPATH": str(PLUGIN_ROOT / "src")},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 2
+    payload = json.loads(proc.stdout)
+    assert payload["verdict"] == "unknown"
+    _validate_against_schema(payload, schema)
+
+
+def test_cli_subprocess_exits_2_on_missing_gh(tmp_path: Path) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "bernstein_merge_queue_stall_guard.cli",
+            "--repo",
+            REPO,
+            "--gh-bin",
+            str(tmp_path / "does-not-exist"),
+            "--no-state",
+            "--format",
+            "json",
+        ],
+        env={**os.environ, "PYTHONPATH": str(PLUGIN_ROOT / "src")},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 2
+    payload = json.loads(proc.stdout)
+    assert payload["verdict"] == "unknown"
+    _validate_against_schema(payload, schema)
+
+
 def test_cli_help_runs_cleanly() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "bernstein_merge_queue_stall_guard.cli", "--help"],
         env={
             **os.environ,
-            "PYTHONPATH": str(Path(__file__).parents[1] / "src"),
+            "PYTHONPATH": str(PLUGIN_ROOT / "src"),
         },
         capture_output=True,
         text=True,

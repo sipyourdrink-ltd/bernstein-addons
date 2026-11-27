@@ -7,11 +7,11 @@ entry mergeable; an ejection watcher fires only after a pull request is
 dropped. Four watchers, each correct, none asking whether anything actually
 lands.
 
-What wedges a queue without turning anything red is runner-pool saturation:
-speculative batches fan out more jobs for a constrained runner label than the
-account's hosted pool has slots, so every batch crawls behind the same slots
-and the head entry never finishes inside the window. Nothing is red, nothing
-is hung, and nothing is unmergeable.
+What wedges a queue without turning anything red is runner saturation:
+speculative batches fan out more jobs for a constrained runner label than
+available runner capacity can drain, so every batch crawls behind the same
+labels and the head entry never finishes inside the window. Nothing is red,
+nothing is hung, and nothing is unmergeable.
 
 This guard keys on the outcome rather than any single failure mechanism:
 
@@ -19,12 +19,15 @@ This guard keys on the outcome rather than any single failure mechanism:
 
 Then it answers the operator's question: which entry sits at the head, what
 pending checks it is waiting on (split into "waiting for a runner" versus
-"executing"), and the hosted-runner pool census by label across active runs.
+"executing"), and the active (queued and in-progress) workflow job counts by
+runner label across inspected runs.
 
 It reads check-run conclusions and merge-queue entry states from the GitHub
 API, and dates the last merge from the repository activity feed (the ref
 update itself) rather than the tip commit's committer date, which the queue
-stamps at speculative build time and can lag the merge by over an hour.
+stamps at speculative build time and can lag the merge by over an hour. If
+the activity feed is unavailable and the tip commit date falls outside the
+stall window, the guard returns ``unknown`` rather than asserting a stall.
 
 This watcher is strictly read-only on GitHub: it never dequeues, cancels,
 relabels, pushes, or edits merge-queue settings.
@@ -32,11 +35,13 @@ relabels, pushes, or edits merge-queue settings.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import os
 import re
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -53,9 +58,20 @@ from bernstein_merge_queue_stall_guard.models import (
 SCHEMA_VERSION = "1.0"
 REPO_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/@-]+$")
-RED_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled"})
+RED_CONCLUSIONS = frozenset(
+    {
+        "failure",
+        "timed_out",
+        "cancelled",
+        "startup_failure",
+        "action_required",
+        "stale",
+    }
+)
 LANDING_ACTIVITY_TYPES = frozenset({"merge_queue_merge", "push", "pr_merge", "force_push"})
+MAX_CHECK_RUN_PAGES = 20
 MAX_RUNS_TO_CENSUS = 30
+MAX_JOB_PAGES = 5
 
 EXIT_HEALTHY = 0
 EXIT_STALLED = 1
@@ -108,11 +124,20 @@ def _int_or_none(value: Any) -> int | None:
     return None
 
 
-def _default_state_dir() -> Path:
+def _state_namespace(repo: str, branch: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", f"{repo}__{branch}").strip("_")[:64]
+    digest = hashlib.sha256(f"{repo}\0{branch}".encode()).hexdigest()[:12]
+    return f"{slug}-{digest}" if slug else digest
+
+
+def _default_state_dir(repo: str, branch: str) -> Path:
     xdg = os.environ.get("XDG_STATE_HOME", "").strip()
-    if xdg:
-        return Path(xdg) / "merge-queue-stall-guard"
-    return Path.home() / ".local" / "state" / "merge-queue-stall-guard"
+    base = (
+        Path(xdg) / "merge-queue-stall-guard"
+        if xdg
+        else Path.home() / ".local" / "state" / "merge-queue-stall-guard"
+    )
+    return base / _state_namespace(repo, branch)
 
 
 def _persist_state(
@@ -211,6 +236,8 @@ def _persist_state(
             runner_pools=report.runner_pools,
             alert_emitted=alert_emitted,
             summary=report.summary,
+            queue_truncated=report.queue_truncated,
+            active_jobs_truncated=report.active_jobs_truncated,
         )
     return report
 
@@ -225,6 +252,15 @@ def _unknown_report(
     entries_count: int | None = None,
     build_depth: int | None = None,
     tip_sha: str | None = None,
+    last_merge_at: str | None = None,
+    last_merge_source: LastMergeSource | None = None,
+    minutes_since_merge: int | None = None,
+    head: HeadEntryReport | None = None,
+    queue: tuple[QueueEntrySummary, ...] = (),
+    queue_truncated: bool = False,
+    runner_pools: dict[str, int] | None = None,
+    active_jobs_truncated: bool = False,
+    summary: str | None = None,
 ) -> StallReport:
     return StallReport(
         schema_version=SCHEMA_VERSION,
@@ -238,15 +274,46 @@ def _unknown_report(
         entries_count=entries_count,
         build_depth=build_depth,
         tip_sha=tip_sha,
-        last_merge_at=None,
-        last_merge_source=None,
-        minutes_since_merge=None,
-        head=None,
-        queue=(),
-        runner_pools=None,
+        last_merge_at=last_merge_at,
+        last_merge_source=last_merge_source,
+        minutes_since_merge=minutes_since_merge,
+        head=head,
+        queue=queue,
+        runner_pools=runner_pools,
         alert_emitted=False,
-        summary=f"unknown: {reason}",
+        summary=summary if summary is not None else f"unknown: {reason}",
+        queue_truncated=queue_truncated,
+        active_jobs_truncated=active_jobs_truncated,
     )
+
+
+def _fetch_all_check_runs(
+    gh: GhClient,
+    repo: str,
+    head_sha: str,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Fetch paginated check runs for head_sha; returns (runs, truncated)."""
+    all_runs: list[dict[str, Any]] = []
+    truncated = False
+    for page in range(1, MAX_CHECK_RUN_PAGES + 1):
+        route = (
+            f"repos/{repo}/commits/{head_sha}/check-runs?per_page=100"
+            if page == 1
+            else f"repos/{repo}/commits/{head_sha}/check-runs?per_page=100&page={page}"
+        )
+        payload = gh.get(route)
+        if not isinstance(payload, dict) or not isinstance(payload.get("check_runs"), list):
+            raise GhQueryError("check-runs payload missing check_runs list")
+        page_runs = [r for r in payload["check_runs"] if isinstance(r, dict)]
+        all_runs.extend(page_runs)
+        total_count = _int_or_none(payload.get("total_count"))
+        if total_count is not None and len(all_runs) >= total_count:
+            break
+        if len(page_runs) < 100:
+            break
+        if page == MAX_CHECK_RUN_PAGES:
+            truncated = True
+    return all_runs, truncated
 
 
 def evaluate_queue(
@@ -267,12 +334,20 @@ def evaluate_queue(
         raise ValueError(f"invalid repository format (expected owner/name): {repo!r}")
     if not BRANCH_RE.fullmatch(branch):
         raise ValueError(f"invalid branch name: {branch!r}")
-    if stall_hours <= 0:
-        raise ValueError(f"stall_hours must be positive, got {stall_hours!r}")
+    if isinstance(stall_hours, bool) or not math.isfinite(stall_hours) or stall_hours <= 0:
+        raise ValueError(f"stall_hours must be a finite positive number, got {stall_hours!r}")
+    if (
+        isinstance(alert_repeat_hours, bool)
+        or not math.isfinite(alert_repeat_hours)
+        or alert_repeat_hours < 0
+    ):
+        raise ValueError(
+            f"alert_repeat_hours must be a finite non-negative number, got {alert_repeat_hours!r}"
+        )
 
     gh = client or GhClient()
     owner, name = repo.split("/", 1)
-    effective_state_dir = state_dir if state_dir is not None else _default_state_dir()
+    effective_state_dir = state_dir if state_dir is not None else _default_state_dir(repo, branch)
 
     def finalize(report: StallReport) -> StallReport:
         if not write_state:
@@ -298,11 +373,9 @@ def evaluate_queue(
             )
         )
 
-    merge_queue = (
-        queue_payload.get("data", {}).get("repository", {}).get("mergeQueue")
-        if isinstance(queue_payload.get("data"), dict)
-        else None
-    )
+    data_obj = queue_payload.get("data")
+    repo_obj = data_obj.get("repository") if isinstance(data_obj, dict) else None
+    merge_queue = repo_obj.get("mergeQueue") if isinstance(repo_obj, dict) else None
     if not isinstance(merge_queue, dict):
         return finalize(
             _unknown_report(
@@ -352,6 +425,7 @@ def evaluate_queue(
         )
         for node in nodes
     )
+    queue_truncated = len(queue_summaries) < entries_count
 
     # 2. Read branch tip and repository activity feed for last landing time.
     try:
@@ -366,6 +440,8 @@ def evaluate_queue(
                 reason=f"could not read {branch} tip: {exc}",
                 entries_count=entries_count,
                 build_depth=build_depth,
+                queue=queue_summaries,
+                queue_truncated=queue_truncated,
             )
         )
 
@@ -379,6 +455,8 @@ def evaluate_queue(
                 reason=f"unexpected {branch} tip payload",
                 entries_count=entries_count,
                 build_depth=build_depth,
+                queue=queue_summaries,
+                queue_truncated=queue_truncated,
             )
         )
 
@@ -417,6 +495,8 @@ def evaluate_queue(
                 entries_count=entries_count,
                 build_depth=build_depth,
                 tip_sha=tip_sha,
+                queue=queue_summaries,
+                queue_truncated=queue_truncated,
             )
         )
 
@@ -451,10 +531,13 @@ def evaluate_queue(
                 runner_pools=None,
                 alert_emitted=False,
                 summary=f"healthy: queue empty -- {base_summary}",
+                queue_truncated=queue_truncated,
+                active_jobs_truncated=False,
             )
         )
 
-    if mins_since_merge < int(stall_hours * 60):
+    stall_threshold = timedelta(hours=stall_hours)
+    if (checked_at - landed_dt) < stall_threshold:
         return finalize(
             StallReport(
                 schema_version=SCHEMA_VERSION,
@@ -476,6 +559,31 @@ def evaluate_queue(
                 runner_pools=None,
                 alert_emitted=False,
                 summary=f"healthy: merges are flowing -- {base_summary}",
+                queue_truncated=queue_truncated,
+                active_jobs_truncated=False,
+            )
+        )
+
+    # A commit's committer date can be much older than when it actually landed
+    # on the branch, so never assert a stall when the activity feed was unavailable.
+    if landed_source != "activity":
+        reason = "activity feed unavailable; cannot confirm stall from commit date alone"
+        return finalize(
+            _unknown_report(
+                repo=repo,
+                branch=branch,
+                now=checked_at,
+                stall_hours=stall_hours,
+                reason=reason,
+                entries_count=entries_count,
+                build_depth=build_depth,
+                tip_sha=tip_sha,
+                last_merge_at=format_iso_utc(landed_dt),
+                last_merge_source=landed_source,
+                minutes_since_merge=mins_since_merge,
+                queue=queue_summaries,
+                queue_truncated=queue_truncated,
+                summary=f"unknown: {reason} -- {base_summary}",
             )
         )
 
@@ -499,26 +607,25 @@ def evaluate_queue(
             head_title = str(raw_title) if isinstance(raw_title, str) else None
         commit_obj = head_node.get("headCommit")
         if isinstance(commit_obj, dict) and isinstance(commit_obj.get("oid"), str):
-            head_sha = commit_obj["oid"]
+            head_sha = commit_obj["oid"] or None
         head_state = str(head_node.get("state") or "?")
         enq_dt = parse_iso_utc(head_node.get("enqueuedAt"))
         if enq_dt is not None:
             head_enq_iso = format_iso_utc(enq_dt)
             head_enq_mins = _minutes_since(checked_at, enq_dt)
 
-    red_count: int | None = 0
-    pending_count: int | None = 0
+    red_count: int | None = None
+    pending_count: int | None = None
     pending_checks: list[PendingCheck] = []
     checks_error: str | None = None
 
-    if head_sha:
+    if head_node is None:
+        checks_error = "head entry missing from merge queue nodes"
+    elif not head_sha:
+        checks_error = "head entry missing headCommit.oid"
+    else:
         try:
-            checks_payload = gh.get(f"repos/{repo}/commits/{head_sha}/check-runs?per_page=100")
-            if not isinstance(checks_payload, dict) or not isinstance(
-                checks_payload.get("check_runs"), list
-            ):
-                raise GhQueryError("check-runs payload missing check_runs list")
-            runs = [r for r in checks_payload["check_runs"] if isinstance(r, dict)]
+            runs, checks_truncated = _fetch_all_check_runs(gh, repo, head_sha)
             red_count = sum(1 for r in runs if r.get("conclusion") in RED_CONCLUSIONS)
             pending_runs = [r for r in runs if r.get("status") != "completed"]
             pending_count = len(pending_runs)
@@ -541,6 +648,9 @@ def evaluate_queue(
                             running_minutes=_minutes_since(checked_at, started_dt),
                         )
                     )
+            if checks_truncated and red_count == 0:
+                red_count = None
+                checks_error = "check-runs pagination limit reached"
         except (GhUnavailableError, GhQueryError):
             red_count = None
             pending_count = None
@@ -559,40 +669,64 @@ def evaluate_queue(
         checks_error=checks_error,
     )
 
-    # 4. Hosted-runner pool census across in-progress workflow runs.
+    # 4. Active (queued and in-progress) workflow job counts by runner label.
     runner_pools: dict[str, int] | None = None
+    active_jobs_truncated = False
     try:
         runs_payload = gh.get(f"repos/{repo}/actions/runs?status=in_progress&per_page=50")
         if isinstance(runs_payload, dict) and isinstance(runs_payload.get("workflow_runs"), list):
             label_counts: Counter[str] = Counter()
-            run_ids = [
+            all_run_ids = [
                 rid
                 for item in runs_payload["workflow_runs"]
                 if isinstance(item, dict) and (rid := _int_or_none(item.get("id"))) is not None
-            ][:MAX_RUNS_TO_CENSUS]
+            ]
+            total_runs = _int_or_none(runs_payload.get("total_count"))
+            if len(all_run_ids) > MAX_RUNS_TO_CENSUS or (
+                total_runs is not None and total_runs > len(all_run_ids[:MAX_RUNS_TO_CENSUS])
+            ):
+                active_jobs_truncated = True
+            run_ids = all_run_ids[:MAX_RUNS_TO_CENSUS]
             for rid in run_ids:
-                try:
-                    jobs_payload = gh.get(f"repos/{repo}/actions/runs/{rid}/jobs?per_page=100")
-                except (GhUnavailableError, GhQueryError):
-                    continue
-                if not isinstance(jobs_payload, dict) or not isinstance(
-                    jobs_payload.get("jobs"), list
-                ):
-                    continue
-                for job in jobs_payload["jobs"]:
-                    if not isinstance(job, dict):
-                        continue
-                    if job.get("status") not in ("in_progress", "queued"):
-                        continue
-                    labels = job.get("labels")
-                    if isinstance(labels, list) and labels:
-                        key = ",".join(str(lbl) for lbl in labels)
-                        label_counts[key] += 1
+                jobs_seen = 0
+                for page in range(1, MAX_JOB_PAGES + 1):
+                    jobs_route = (
+                        f"repos/{repo}/actions/runs/{rid}/jobs?per_page=100"
+                        if page == 1
+                        else f"repos/{repo}/actions/runs/{rid}/jobs?per_page=100&page={page}"
+                    )
+                    try:
+                        jobs_payload = gh.get(jobs_route)
+                    except (GhUnavailableError, GhQueryError):
+                        active_jobs_truncated = True
+                        break
+                    if not isinstance(jobs_payload, dict) or not isinstance(
+                        jobs_payload.get("jobs"), list
+                    ):
+                        active_jobs_truncated = True
+                        break
+                    page_jobs = [j for j in jobs_payload["jobs"] if isinstance(j, dict)]
+                    jobs_seen += len(page_jobs)
+                    for job in page_jobs:
+                        if job.get("status") not in ("in_progress", "queued"):
+                            continue
+                        labels = job.get("labels")
+                        if isinstance(labels, list) and labels:
+                            key = ",".join(str(lbl) for lbl in labels)
+                            label_counts[key] += 1
+                    total_jobs = _int_or_none(jobs_payload.get("total_count"))
+                    if total_jobs is not None and jobs_seen >= total_jobs:
+                        break
+                    if len(page_jobs) < 100:
+                        break
+                    if page == MAX_JOB_PAGES:
+                        active_jobs_truncated = True
             runner_pools = dict(
                 sorted(label_counts.items(), key=lambda pair: (-pair[1], pair[0]))
             )
     except (GhUnavailableError, GhQueryError):
         runner_pools = None
+        active_jobs_truncated = True
 
     # Format human summary line.
     if checks_error is not None:
@@ -618,7 +752,7 @@ def evaluate_queue(
     detail = (
         f"head=#{head_pr if head_pr is not None else '?'} ({head_state}, enqueued {enq_str} ago) "
         f"waiting on {pending_str} check(s): {pending_desc}; red={red_str}; "
-        f"pools: {pool_desc}; queue: {queue_list}; {base_summary}"
+        f"active_jobs: {pool_desc}; queue: {queue_list}; {base_summary}"
     )
 
     if red_count is not None and red_count > 0:
@@ -644,6 +778,31 @@ def evaluate_queue(
                 runner_pools=runner_pools,
                 alert_emitted=False,
                 summary=f"blocked-red: head entry is red -- {detail}",
+                queue_truncated=queue_truncated,
+                active_jobs_truncated=active_jobs_truncated,
+            )
+        )
+
+    if red_count is None or checks_error is not None:
+        return finalize(
+            _unknown_report(
+                repo=repo,
+                branch=branch,
+                now=checked_at,
+                stall_hours=stall_hours,
+                reason=checks_error or "head checks unreadable",
+                entries_count=entries_count,
+                build_depth=build_depth,
+                tip_sha=tip_sha,
+                last_merge_at=format_iso_utc(landed_dt),
+                last_merge_source=landed_source,
+                minutes_since_merge=mins_since_merge,
+                head=head_report,
+                queue=queue_summaries,
+                queue_truncated=queue_truncated,
+                runner_pools=runner_pools,
+                active_jobs_truncated=active_jobs_truncated,
+                summary=f"unknown: {checks_error or 'head checks unreadable'} -- {detail}",
             )
         )
 
@@ -668,5 +827,7 @@ def evaluate_queue(
             runner_pools=runner_pools,
             alert_emitted=False,
             summary=f"STALL: {detail}",
+            queue_truncated=queue_truncated,
+            active_jobs_truncated=active_jobs_truncated,
         )
     )

@@ -100,6 +100,8 @@ class StallReport:
     runner_pools: dict[str, int] | None
     alert_emitted: bool
     summary: str
+    queue_truncated: bool = False
+    active_jobs_truncated: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -119,7 +121,9 @@ class StallReport:
             "minutes_since_merge": self.minutes_since_merge,
             "head": self.head.to_dict() if self.head is not None else None,
             "queue": [entry.to_dict() for entry in self.queue],
+            "queue_truncated": self.queue_truncated,
             "runner_pools": self.runner_pools,
+            "active_jobs_truncated": self.active_jobs_truncated,
             "alert_emitted": self.alert_emitted,
             "summary": self.summary,
         }

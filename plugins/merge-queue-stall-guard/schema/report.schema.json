@@ -22,7 +22,9 @@
     "minutes_since_merge",
     "head",
     "queue",
+    "queue_truncated",
     "runner_pools",
+    "active_jobs_truncated",
     "alert_emitted",
     "summary"
   ],
@@ -133,9 +135,18 @@
         }
       }
     },
+    "queue_truncated": {
+      "type": "boolean",
+      "description": "True when the merge queue has more entries than returned in the queue array."
+    },
     "runner_pools": {
       "type": ["object", "null"],
+      "description": "Counts of active (queued or in-progress) workflow jobs grouped by runner labels across inspected runs.",
       "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "active_jobs_truncated": {
+      "type": "boolean",
+      "description": "True when active workflow runs or job pages exceeded inspection limits or a jobs query failed."
     },
     "alert_emitted": {
       "type": "boolean"
