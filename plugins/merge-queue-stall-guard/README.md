@@ -36,9 +36,9 @@ merge-queue-stall-guard --repo example-org/example-repo --format json --no-state
 |---|---|---|
 | `--repo` | `$MQSG_REPO` | Target repository in `owner/name` form (required) |
 | `--branch` | `main` | Protected branch with merge queue enabled |
-| `--stall-hours` | `2` | Hours without a merge before reporting a stall |
-| `--alert-repeat-hours` | `4` | Minimum hours between repeated rows in `alerts.jsonl` |
-| `--state-dir` | `$XDG_STATE_HOME/merge-queue-stall-guard/<repo-branch>` | Directory for local history, stall marker, and throttled alerts (namespaced per repo and branch by default) |
+| `--stall-hours` | `2` | Hours without a merge before reporting a stall (finite, `(0, 8760]`) |
+| `--alert-repeat-hours` | `4` | Minimum hours between repeated rows in `alerts.jsonl` (finite, `[0, 8760]`) |
+| `--state-dir` | `$XDG_STATE_HOME/merge-queue-stall-guard/<repo-branch>` | Directory for local history, stall marker, and throttled alerts (namespaced per repo and branch by default; upgrading from an earlier shared default directory starts a fresh per-target episode and may emit one repeat alert) |
 | `--no-state` | off | Skip writing local state files (useful in CI) |
 | `--format` | `text` | Output format: `text` or `json` |
 | `--gh-bin` | `gh` | Path to the `gh` CLI binary |

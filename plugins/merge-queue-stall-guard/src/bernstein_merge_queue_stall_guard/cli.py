@@ -108,7 +108,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             state_dir=args.state_dir,
             write_state=not args.no_state,
         )
-    except ValueError as exc:
+    except (ValueError, OverflowError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNREADABLE
 
