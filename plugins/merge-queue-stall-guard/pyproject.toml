@@ -17,6 +17,9 @@ merge-queue-stall-guard = "bernstein_merge_queue_stall_guard.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+bernstein_merge_queue_stall_guard = ["report.schema.json"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

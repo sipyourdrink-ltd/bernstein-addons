@@ -16,6 +16,10 @@ from bernstein_merge_queue_stall_guard.guard import (
     parse_iso_utc,
 )
 from bernstein_merge_queue_stall_guard.models import StallReport
+from bernstein_merge_queue_stall_guard.schema_check import (
+    ReportSchemaError,
+    validate_report_dict,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -108,12 +112,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             state_dir=args.state_dir,
             write_state=not args.no_state,
         )
-    except (ValueError, OverflowError) as exc:
+    except (ValueError, OverflowError, ReportSchemaError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNREADABLE
 
+    payload = report.to_dict()
+    try:
+        validate_report_dict(payload)
+    except ReportSchemaError as exc:
+        print(f"error: report failed schema validation: {exc}", file=sys.stderr)
+        return EXIT_UNREADABLE
+
     if args.output_format == "json":
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print(format_report_text(report))
     return report.exit_code
