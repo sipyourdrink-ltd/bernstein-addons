@@ -106,6 +106,28 @@ jobs:
           pip wheel --no-deps ./plugins/brand-gate --wheel-dir /tmp/brand-gate-wheel
           bernstein-brand-gate --help
 
+  merge-queue-stall-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package and quality tools
+        run: pip install ./plugins/merge-queue-stall-guard pytest ruff mypy jsonschema zizmor==1.33.1
+      - name: Lint and strict typecheck
+        run: |
+          ruff check plugins/merge-queue-stall-guard
+          mypy --strict plugins/merge-queue-stall-guard/src
+      - name: Unit tests and schema validation
+        run: pytest plugins/merge-queue-stall-guard/tests -v
+      - name: Lint example workflow with zizmor
+        run: zizmor --no-online-audits plugins/merge-queue-stall-guard/examples/stall-guard.yml
+      - name: Package and CLI
+        run: |
+          pip wheel --no-deps ./plugins/merge-queue-stall-guard --wheel-dir /tmp/mqsg-wheel
+          merge-queue-stall-guard --help
+
   git-url-install:
     runs-on: ubuntu-latest
     strategy:
@@ -132,7 +154,7 @@ jobs:
           assert "not currently published on PyPI" in root_readme, "root README missing PyPI notice"
 
           tags: dict[str, str] = {}
-          for slug in ("role-pack", "org-kit", "brand-gate", "sandcastle"):
+          for slug in ("role-pack", "org-kit", "brand-gate", "sandcastle", "merge-queue-stall-guard"):
               pyproject = pathlib.Path("plugins") / slug / "pyproject.toml"
               data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
               pkg_name = data["project"]["name"]
@@ -161,6 +183,7 @@ jobs:
           ORG_TAG="org-kit-v$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('plugins/org-kit/pyproject.toml').read_text())['project']['version'])")"
           BRAND_TAG="brand-gate-v$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('plugins/brand-gate/pyproject.toml').read_text())['project']['version'])")"
           SAND_TAG="sandcastle-v$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('plugins/sandcastle/pyproject.toml').read_text())['project']['version'])")"
+          MQSG_TAG="merge-queue-stall-guard-v$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('plugins/merge-queue-stall-guard/pyproject.toml').read_text())['project']['version'])")"
 
           mkdir -p /tmp/git-url-smoke
           cd /tmp/git-url-smoke
@@ -190,3 +213,8 @@ jobs:
 
           check_venv sandcastle \
             "bernstein-sandcastle @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@${SAND_TAG}#subdirectory=plugins/sandcastle"
+
+          vdir="/tmp/git-url-smoke/venv-merge-queue-stall-guard"
+          python -m venv "$vdir"
+          "$vdir/bin/pip" install "bernstein-merge-queue-stall-guard @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@${MQSG_TAG}#subdirectory=plugins/merge-queue-stall-guard"
+          "$vdir/bin/merge-queue-stall-guard" --help

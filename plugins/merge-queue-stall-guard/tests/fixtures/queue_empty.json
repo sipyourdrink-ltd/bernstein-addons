@@ -1,0 +1,15 @@
+{
+  "data": {
+    "repository": {
+      "mergeQueue": {
+        "configuration": {
+          "maximumEntriesToBuild": 2
+        },
+        "entries": {
+          "totalCount": 0,
+          "nodes": []
+        }
+      }
+    }
+  }
+}

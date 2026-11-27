@@ -1,0 +1,53 @@
+name: merge-queue-stall-guard
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check-merge-queue:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+      actions: read
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install merge-queue-stall-guard
+        run: |
+          pip install --no-cache-dir \
+            "bernstein-merge-queue-stall-guard @ git+https://github.com/sipyourdrink-ltd/bernstein-addons@merge-queue-stall-guard-v0.1.0#subdirectory=plugins/merge-queue-stall-guard"
+
+      - name: Inspect merge queue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MQSG_REPO: ${{ github.repository }}
+          MQSG_BRANCH: main
+        run: |
+          set +e
+          merge-queue-stall-guard \
+            --repo "$MQSG_REPO" \
+            --branch "$MQSG_BRANCH" \
+            --stall-hours 2 \
+            --no-state \
+            --format json > report.json
+          rc=$?
+          set -e
+
+          {
+            echo "## Merge queue stall guard"
+            echo ""
+            echo '```json'
+            cat report.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$rc"

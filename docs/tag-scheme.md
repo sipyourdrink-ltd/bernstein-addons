@@ -12,6 +12,7 @@ Each package uses an annotated git tag named `<plugin-dir>-v<version>`, where `<
 | `plugins/org-kit` | `bernstein-org-kit` | `0.2.0` | `org-kit-v0.2.0` |
 | `plugins/brand-gate` | `bernstein-brand-gate` | `0.1.0` | `brand-gate-v0.1.0` |
 | `plugins/sandcastle` | `bernstein-sandcastle` | `0.1.0` | `sandcastle-v0.1.0` |
+| `plugins/merge-queue-stall-guard` | `bernstein-merge-queue-stall-guard` | `0.1.0` | `merge-queue-stall-guard-v0.1.0` |
 
 ## Rules
 
