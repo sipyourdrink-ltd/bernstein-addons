@@ -1,9 +1,10 @@
-"""Class-wide mutation suite + all 46 independent review scenarios."""
+"""Class-wide mutation suite and 46 regression scenarios."""
 
 from __future__ import annotations
 
 import copy
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,10 @@ import pytest
 
 from bernstein_merge_queue_stall_guard.gh import GhClient, GhQueryError
 from bernstein_merge_queue_stall_guard.guard import evaluate_queue
+from bernstein_merge_queue_stall_guard.parsers import (
+    ResponseParseError,
+    parse_workflow_runs_page,
+)
 from bernstein_merge_queue_stall_guard.schema_check import validate_report_dict
 
 REPO = "example-org/example-repo"
@@ -435,11 +440,11 @@ def test_diagnostic_mutations_always_flag_truncated_and_never_fabricate_labels()
 
 
 # ----------------------------------------------------------------------------
-# All 46 independent review scenarios (kimi-review-addons12-d71c21c1.md)
+# Regression scenarios covering malformed and edge-case API payloads
 # ----------------------------------------------------------------------------
 
 
-def _kimi_46_cases() -> list[tuple[str, dict[str, Any], str, int, bool | None]]:
+def _review_regression_cases() -> list[tuple[str, dict[str, Any], str, int, bool | None]]:
     """Return (id, reply_overrides, expected_verdict, expected_rc, expected_truncated)."""
     green = {
         "name": "ci-pass",
@@ -815,15 +820,15 @@ def _kimi_46_cases() -> list[tuple[str, dict[str, Any], str, int, bool | None]]:
     ]
 
 
-KIMI_46_CASES = _kimi_46_cases()
+REVIEW_REGRESSION_CASES = _review_regression_cases()
 
 
 @pytest.mark.parametrize(
     ("case_id", "overrides", "expected_verdict", "expected_rc", "expected_truncated"),
-    KIMI_46_CASES,
-    ids=[c[0] for c in KIMI_46_CASES],
+    REVIEW_REGRESSION_CASES,
+    ids=[c[0] for c in REVIEW_REGRESSION_CASES],
 )
-def test_kimi_46_scenarios(
+def test_review_regression_scenarios(
     tmp_path: Path,
     case_id: str,
     overrides: dict[str, Any],
@@ -831,7 +836,7 @@ def test_kimi_46_scenarios(
     expected_rc: int,
     expected_truncated: bool | None,
 ) -> None:
-    assert len(KIMI_46_CASES) == 46
+    assert len(REVIEW_REGRESSION_CASES) == 46
     replies = _base_replies()
     replies.update(overrides)
     state_dir = tmp_path / "state"
@@ -856,3 +861,85 @@ def test_kimi_46_scenarios(
     if case_id == "21-gql-null-and-pos2-old-B1":
         assert CHECKS_ROUTE not in client.called_routes
     validate_report_dict(report.to_dict())
+
+
+def test_duplicate_run_ids_on_single_page_mark_truncated_while_cross_status_dedups(
+    tmp_path: Path,
+) -> None:
+    """Same-page duplicate run IDs degrade diagnostics; cross-status dedup stays complete."""
+    dup_page = {"total_count": 2, "workflow_runs": [{"id": 101}, {"id": 101}]}
+    with pytest.raises(ResponseParseError, match="duplicate"):
+        parse_workflow_runs_page(dup_page)
+
+    # Same-page duplicates set active_jobs_truncated=True without altering the stall verdict.
+    dup_replies = _base_replies()
+    dup_replies[RUNS_ROUTE] = dup_page
+    dup_report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=StubGhClient(dup_replies),
+        now=NOW_DT,
+        state_dir=tmp_path / "dup-state",
+    )
+    assert dup_report.verdict == "stall"
+    assert dup_report.exit_code == 1
+    assert dup_report.alert_emitted is True
+    assert dup_report.active_jobs_truncated is True
+    validate_report_dict(dup_report.to_dict())
+
+    # Cross-status race (same run ID in both in_progress and queued pages) deduplicates cleanly.
+    race_replies = _base_replies()
+    race_replies[RUNS_ROUTE] = {"total_count": 1, "workflow_runs": [{"id": 101}]}
+    race_replies[QUEUED_RUNS_ROUTE] = {"total_count": 1, "workflow_runs": [{"id": 101}]}
+    race_report = evaluate_queue(
+        repo=REPO,
+        branch=BRANCH,
+        client=StubGhClient(race_replies),
+        now=NOW_DT,
+        state_dir=tmp_path / "race-state",
+    )
+    assert race_report.verdict == "stall"
+    assert race_report.exit_code == 1
+    assert race_report.active_jobs_truncated is False
+    assert race_report.runner_pools == {"macos-latest": 5}
+    validate_report_dict(race_report.to_dict())
+
+
+def test_public_plugin_files_contain_no_internal_review_identifiers() -> None:
+    """Public plugin files must not embed local review filenames or reviewer-named identifiers."""
+    plugin_root = Path(__file__).resolve().parent.parent
+    forbidden = re.compile(
+        r"\b[a-z0-9]+-review-[a-z0-9-]+\.md\b"
+        r"|\b_?[a-z]+_46_cases\b"
+        r"|\btest_[a-z]+_46_scenarios\b",
+        re.IGNORECASE,
+    )
+    scan_roots = (
+        plugin_root / "src",
+        plugin_root / "tests",
+        plugin_root / "schema",
+        plugin_root / "examples",
+    )
+    scan_files = [
+        plugin_root / "README.md",
+        plugin_root / "CHANGELOG.md",
+        plugin_root / "pyproject.toml",
+    ]
+    for root in scan_roots:
+        for path in sorted(root.rglob("*")):
+            if path.is_file() and path.suffix in {".py", ".md", ".json", ".yml", ".yaml", ".toml"}:
+                scan_files.append(path)
+
+    violations: list[str] = []
+    for path in scan_files:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            match = forbidden.search(line)
+            if match:
+                rel = path.relative_to(plugin_root)
+                violations.append(f"{rel}:{lineno}: {match.group(0)}")
+    assert violations == [], (
+        "Internal review identifiers found in public plugin files:\n" + "\n".join(violations)
+    )

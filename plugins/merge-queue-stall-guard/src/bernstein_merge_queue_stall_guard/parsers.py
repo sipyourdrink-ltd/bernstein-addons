@@ -418,10 +418,16 @@ def parse_workflow_runs_page(payload: Any) -> ParsedWorkflowRunsPage:
         )
 
     run_ids: list[int] = []
+    seen_ids: set[int] = set()
     for idx, raw_run in enumerate(raw_runs):
         ctx = f"workflow_runs.workflow_runs[{idx}]"
         run = _req_dict(raw_run, ctx)
         rid = _req_int(_req_key(run, "id", ctx), f"{ctx}.id", min_value=1)
+        if rid in seen_ids:
+            raise ResponseParseError(
+                f"{ctx}.id: duplicate workflow run id {rid} within single page"
+            )
+        seen_ids.add(rid)
         run_ids.append(rid)
 
     return ParsedWorkflowRunsPage(total_count=total_count, run_ids=tuple(run_ids))
